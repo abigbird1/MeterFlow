@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MeterFlow 功能列表思维导图</title>
+<style>
+  html,body{margin:0;padding:0;background:#ffffff;}
+  #root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+  svg{width:100%;height:100%;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+'use strict';
+/* ---------- 数据：与 01.功能模块梳理.md §1.4 完全同源 ---------- */
+const RIGHT = [
+  { name:'计量计费模块', base:'#2563eb', tint:'#dbeafe', leaves:['事件上报·双保险判重','幂等返回','批量上报·逐条幂等','用量与消费总览','消费明细·CSV导出','阶梯计价·两种模式','价格版本·即时生效','日切快照'] },
+  { name:'抵扣与账户模块', base:'#16a34a', tint:'#dcfce7', leaves:['余额与充值·模拟支付','内置月度额度','赠送额度·先到期先扣','抵扣链分解展示','有限透支·白名单'] },
+  { name:'资源包模块', base:'#ea580c', tint:'#ffedd5', leaves:['商品列表与详情','限量抢购·三重限制','下单锁库存','模拟支付','超时释放','我的资源包','到期提醒·抵扣留痕'] },
+  { name:'账单模块', base:'#7c3aed', tint:'#ede9fe', leaves:['账单列表','账单详情·版本分段','部门小计','账单确认与结清','月末出账任务','CSV导出','异步导出·下载中心'] },
+  { name:'对账治理模块', base:'#0891b2', tint:'#cffafe', leaves:['每日自动对账','差错清单·四类','冲正调整单','两级审批·初审≠复审','转人工'] },
+  { name:'欠费停服模块', base:'#db2777', tint:'#fce7f3', leaves:['分级停服·预警停产品','全停','宽限期','催缴','充值回正恢复'] }
+];
+const LEFT = [
+  { name:'租户与组织模块', base:'#dc2626', tint:'#fee2e2', leaves:['注册即开通','成员邀请·直接生效','多级部门管理','预设与自定义角色','个人信息'] },
+  { name:'接入与凭证模块', base:'#4f46e5', tint:'#e0e7ff', leaves:['API Key 列表','创建 Key·绑定部门','限定产品集','启用与禁用','轮换·新旧并行24h'] },
+  { name:'争议模块', base:'#a16207', tint:'#fef9c3', leaves:['申诉提交','工单受理与回复','代查·四要素留痕','补偿审批制','SLA分级与超时升级'] },
+  { name:'后台管理', base:'#475569', tint:'#e2e8f0', leaves:['数据看板','租户管理·停用恢复','产品目录与计价方案','赠送额度发放','系统用户·六岗位','审计日志'] },
+  { name:'通知与演示辅助', base:'#059669', tint:'#d1fae5', leaves:['站内通知中心','到期提醒','欠费横幅','模拟上报·模拟支付·模拟超时'] }
+];
+const W = 2400, H = 1822, ROW = 38, LEAF_H = 34, BR_H = 48, OVERHEAD = 72;
+const CENTER = { cx: 1200, cy: H/2, w: 330, h: 100 };
+
+function textW(s, cjk, latin){
+  let w = 0;
+  for (const ch of s) w += /[\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF·]/.test(ch) ? cjk : latin;
+  return w;
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function pill(x, y, w, h, fill, stroke, text, anchor, fs, tc, bold){
+  const tx = anchor === 'end' ? x + w - 18 : x + 18;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h/2}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>` +
+         `<text x="${tx}" y="${y + h/2}" font-size="${fs}" fill="${tc}" ${bold?'font-weight="700"':''} dominant-baseline="central" text-anchor="${anchor==='end'?'end':'start'}" font-family="'Microsoft YaHei',sans-serif">${esc(text)}</text>`;
+}
+function curve(x1,y1,x2,y2,color,wd,op){
+  const mx = (x1+x2)/2;
+  return `<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${wd}" stroke-opacity="${op}" stroke-linecap="round"/>`;
+}
+
+/* ---------- 布局 ---------- */
+function sideHeight(list){ return list.reduce((s,b)=> s + OVERHEAD + b.leaves.length*ROW, 0); }
+
+function layoutSide(list, side){
+  const out = { branches: [], leaves: [], curves: [] };
+  const total = sideHeight(list);
+  let y = (H - total) / 2;
+  const bx = side === 'right' ? 1430 : null;      // 分支气泡左缘（右）
+  const bxR = side === 'left' ? 970 : null;       // 分支气泡右缘（左）
+  const lxR = side === 'right' ? 1700 : null;     // 叶子气泡左缘（右）
+  const lxL = side === 'left' ? 700 : null;       // 叶子气泡右缘（左）
+  const cxEdge = side === 'right' ? CENTER.cx + CENTER.w/2 : CENTER.cx - CENTER.w/2;
+  for (const b of list){
+    const bw = Math.min(300, textW(b.name, 25, 13) + 44);
+    const bx0 = side === 'right' ? bx : bxR - bw;
+    const by = y + (BR_H/2 - 2);
+    out.branches.push({ x: bx0, y: y, w: bw, h: BR_H, ...b });
+    // 中心 → 分支
+    out.curves.push({ d: curve(cxEdge, CENTER.cy, side==='right'?bx0:bxR, by, b.base, 5, 0.85) });
+    let ly = y + BR_H + 12;
+    for (const leaf of b.leaves){
+      const lw = textW(leaf, 19, 10) + 34;
+      const lyc = ly + LEAF_H/2;
+      const lx0 = side === 'right' ? lxR : lxL - lw;
+      out.leaves.push({ x: lx0, y: ly, w: lw, h: LEAF_H, text: leaf, base: b.base, tint: b.tint });
+      // 分支 → 叶子
+      const fromX = side === 'right' ? bx0 + bw : bxR - bw;
+      out.curves.push({ d: curve(fromX, by, side==='right'?lx0:lxL, lyc, b.base, 2.2, 0.7) });
+      ly += ROW;
+    }
+    y += BR_H + 12 + b.leaves.length*ROW + 14;
+  }
+  return out;
+}
+const R = layoutSide(RIGHT, 'right');
+const L = layoutSide(LEFT, 'left');
+
+/* ---------- SVG ---------- */
+let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`;
+// 点阵背景（参考图样式）
+for (let gx = 60; gx < W; gx += 56) for (let gy = 60; gy < H; gy += 56)
+  svg += `<circle cx="${gx}" cy="${gy}" r="1.6" fill="#d8dee9"/>`;
+// 连线先画（压在气泡下）
+for (const c of R.curves) svg += c.d;
+for (const c of L.curves) svg += c.d;
+// 左侧叶子
+for (const l of L.leaves) svg += pill(l.x, l.y, l.w, l.h, l.tint, l.base, l.text, 'end', 19, '#1f2937');
+// 左侧分支
+for (const b of L.branches) svg += pill(b.x, b.y, b.w, b.h, b.base, b.base, b.name, 'end', 24, '#ffffff', true);
+// 右侧叶子
+for (const l of R.leaves) svg += pill(l.x, l.y, l.w, l.h, l.tint, l.base, l.text, 'start', 19, '#1f2937');
+// 右侧分支
+for (const b of R.branches) svg += pill(b.x, b.y, b.w, b.h, b.base, b.base, b.name, 'start', 24, '#ffffff', true);
+// 中心节点
+svg += `<rect x="${CENTER.cx - CENTER.w/2}" y="${CENTER.cy - CENTER.h/2}" width="${CENTER.w}" height="${CENTER.h}" rx="34" fill="#ffffff" stroke="#111827" stroke-width="4"/>`;
+svg += `<text x="${CENTER.cx}" y="${CENTER.cy - 16}" font-size="30" font-weight="800" fill="#111827" text-anchor="middle" dominant-baseline="central" font-family="'Microsoft YaHei',sans-serif">MeterFlow</text>`;
+svg += `<text x="${CENTER.cx}" y="${CENTER.cy + 22}" font-size="22" font-weight="700" fill="#374151" text-anchor="middle" dominant-baseline="central" font-family="'Microsoft YaHei',sans-serif">功能列表</text>`;
+// 页脚（左下空白区，避免与右侧叶子重叠）
+svg += `<text x="40" y="${H-26}" font-size="16" fill="#9ca3af" font-family="'Microsoft YaHei',sans-serif">MeterFlow · 多租户计量计费与权益中台 · 功能列表 v1.1（与 01.功能模块梳理.md 同源）</text>`;
+svg += `</svg>`;
+document.getElementById('root').innerHTML = svg;
+</script>
+</body>
+</html>
