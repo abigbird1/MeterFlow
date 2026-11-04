@@ -1,0 +1,44 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: meterflow-platform
+  cloud:
+    nacos:
+      discovery:
+        enabled: false          # 骨架默认关闭；启动 Nacos 后置 true
+        server-addr: 127.0.0.1:8848
+      config:
+        enabled: false
+        server-addr: 127.0.0.1:8848
+        file-extension: yml
+  datasource:                     # 数据模型：meterflow_platform 库（04 schema-platform.sql）
+    url: jdbc:mysql://127.0.0.1:3306/meterflow_platform?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+meterflow:
+  billing-url: http://localhost:8082
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: assign_id          # 雪花 ID（规范 §3）
+  configuration:
+    map-underscore-to-camel-case: true
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 86400                  # 24h（与 Key 轮换并行时长一致）
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# 设计基线 Java 21：开启虚拟线程（本机 JDK 17 骨架保持关闭）
+# spring.threads.virtual.enabled: true
