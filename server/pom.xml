@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.5</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.meterflow</groupId>
+  <artifactId>meterflow-server</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>MeterFlow Server</name>
+  <description>多租户计量计费与权益中台（微服务聚合工程）</description>
+
+  <modules>
+    <module>meterflow-common</module>
+    <module>meterflow-gateway</module>
+    <module>meterflow-platform</module>
+    <module>meterflow-billing</module>
+    <module>meterflow-equity</module>
+    <module>meterflow-finance</module>
+  </modules>
+
+  <properties>
+    <!-- 设计基线为 Java 21（虚拟线程）；本机 JDK 17 时降级编译，容器运行镜像使用 21 -->
+    <java.version>17</java.version>
+    <maven.compiler.release>17</maven.compiler.release>
+    <spring-cloud.version>2023.0.1</spring-cloud.version>
+    <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.alibaba.cloud</groupId>
+        <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+        <version>${spring-cloud-alibaba.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.meterflow</groupId>
+        <artifactId>meterflow-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration><release>17</release></configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
