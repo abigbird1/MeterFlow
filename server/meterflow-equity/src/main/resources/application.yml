@@ -1,0 +1,45 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: meterflow-equity
+  cloud:
+    nacos:
+      discovery:
+        enabled: false          # 骨架默认关闭；启动 Nacos 后置 true
+        server-addr: 127.0.0.1:8848
+      config:
+        enabled: false
+        server-addr: 127.0.0.1:8848
+        file-extension: yml
+  datasource:                     # 数据模型：meterflow_equity 库（04 schema-equity.sql）
+    url: jdbc:mysql://127.0.0.1:3306/meterflow_equity?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: assign_id
+  configuration:
+    map-underscore-to-camel-case: true
+
+meterflow:
+  platform-url: http://localhost:8081   # 身份解析（Feign /auth/me）
+  billing-url: http://localhost:8082    # outbox relay 回调（S4 实例发放）
+
+management:
+  health:
+    redis:
+      enabled: false   # Redis 不可达时健康降级（判重/预扣均有 DB 兜底）
+  endpoints:
+    web:
+      exposure:
+        include: health,info
