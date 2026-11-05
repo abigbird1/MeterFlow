@@ -1,0 +1,37 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: meterflow-finance
+  cloud:
+    nacos:
+      discovery:
+        enabled: false          # 骨架默认关闭；启动 Nacos 后置 true
+        server-addr: 127.0.0.1:8848
+      config:
+        enabled: false
+        server-addr: 127.0.0.1:8848
+        file-extension: yml
+  datasource:                     # 数据模型：meterflow_finance 库（04 schema-finance.sql）
+    url: jdbc:mysql://127.0.0.1:3306/meterflow_finance?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: assign_id
+  configuration:
+    map-underscore-to-camel-case: true
+
+meterflow:
+  platform-url: http://localhost:8081   # 身份解析（Feign /auth/me）
+  billing-url: http://localhost:8082    # 月度汇总/欠费清单/调整单回写
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
