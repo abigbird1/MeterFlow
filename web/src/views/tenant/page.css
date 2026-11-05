@@ -1,0 +1,10 @@
+/* 租户端/管理端通用页面布局（规范 #6.5 整体风格统一） */
+.page { padding: 24px; max-width: 1280px; margin: 0 auto; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 16px; }
+.page-head h2 { margin: 0 0 4px; font-size: 20px; }
+.block { margin-bottom: 16px; }
+.flex { display: flex; gap: 16px; align-items: center; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.muted { color: #94a3b8; font-size: 12px; }
+.stat { color: #475569; font-size: 13px; }
+.stat b { font-size: 16px; color: #0f172a; }
