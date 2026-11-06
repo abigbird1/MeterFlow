@@ -41,6 +41,7 @@ public class FeignController {
     private final com.meterflow.billing.mapper.DeductionRecordMapper recordMapper;
     private final com.meterflow.billing.mapper.AccountTransactionMapper transactionMapper;
     private final EquityClient equityClient;
+    private final com.meterflow.billing.service.BudgetService budgetService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
 
@@ -135,6 +136,12 @@ public class FeignController {
     public Result<BalanceAccount> account(@PathVariable Long tenantId) {
         return Results.ok(accountMapper.selectOne(new LambdaQueryWrapper<BalanceAccount>()
                 .eq(BalanceAccount::getTenantId, tenantId).last("limit 1")));
+    }
+
+    /** 预算告警手动触发（正常由每小时 @Scheduled 驱动；返回本次发送条数） */
+    @PostMapping("/budget-check")
+    public Result<Integer> budgetCheck() {
+        return Results.ok(budgetService.checkAndNotify());
     }
 
     /** 三口径对账数据束（R26，finance 比对用）：A 计量(priced 事件) / B 计费(抵扣流水含钱包部分) / C 账户(余额扣减) */

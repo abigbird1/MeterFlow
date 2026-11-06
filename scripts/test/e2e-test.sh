@@ -174,5 +174,16 @@ curl -s -X POST http://localhost:8080/t/orders/$O1/pay -H "Authorization: Bearer
 curl -s -X POST http://localhost:8080/t/orders/$O2/pay -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"method":"alipay-demo"}' >/dev/null
 mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.package_instance WHERE source_order_no IN ('$O1','$O2'); DELETE FROM meterflow_equity.goods_order WHERE order_no IN ('$O1','$O2'); DELETE FROM meterflow_equity.goods WHERE id=$GID2;" 2>/dev/null
 
+echo "=== 月度预算告警（新功能） ==="
+curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":1}' >/dev/null
+BSTAT=$(curl -s http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN")
+echo "$BSTAT" | grep -q '"budgetCents":1' && ok "T37a 预算设置与回读" || bad "T37a 预算设置" "$BSTAT"
+BCHECK=$(curl -s -X POST http://localhost:8082/feign/billing/budget-check | jget "['data']")
+[ -n "$BCHECK" ] && [ "$BCHECK" -ge 1 ] 2>/dev/null && ok "T37b 预算告警扫描(80%/100%)" || bad "T37b 预算扫描" "$BCHECK"
+BNOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.notification WHERE title='月度预算告警';" 2>/dev/null)
+[ "$BNOTIF" -ge 1 ] 2>/dev/null && ok "T37c 预算告警通知落库" || bad "T37c 通知落库" "$BNOTIF"
+curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":200000}' >/dev/null
+mysql -uroot -p123456 -e "DELETE FROM meterflow_platform.notification WHERE title='月度预算告警';" 2>/dev/null
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

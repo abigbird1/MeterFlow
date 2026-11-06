@@ -60,10 +60,11 @@ public class KeyCacheService {
         Long tenantId = data.get("tenantId") == null ? null : Long.valueOf(String.valueOf(data.get("tenantId")));
         Long deptId = data.get("deptId") == null ? null : Long.valueOf(String.valueOf(data.get("deptId")));
         return new MeContext(Long.valueOf(String.valueOf(data.get("id"))),
-                String.valueOf(data.get("name")), String.valueOf(data.get("portal")), tenantId, deptId);
+                String.valueOf(data.get("name")), String.valueOf(data.get("portal")), tenantId, deptId,
+                String.valueOf(data.get("role")));
     }
 
-    public record MeContext(Long userId, String name, String portal, Long tenantId, Long deptId) {}
+    public record MeContext(Long userId, String name, String portal, Long tenantId, Long deptId, String role) {}
 
     private record CachedKey(long at, KeyContext ctx) {}
 

@@ -3,9 +3,13 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 import { fmtCents } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 
-/** 用量与消费总览（05 §5.1.1）：统计卡 + 7 日消费趋势 + 产品消费分布 + 额度/资源包水位 */
+/** 用量与消费总览（05 §5.1.1）：统计卡 + 7 日消费趋势 + 产品消费分布 + 额度/资源包水位 + 月度预算 */
+const auth = useAuthStore()
 const data = ref<any>(null)
+const budget = ref<any>(null)
 const trendEl = ref<HTMLElement>()
 const distEl = ref<HTMLElement>()
 let trendChart: echarts.ECharts | null = null
@@ -40,8 +44,24 @@ function renderDist(events: any[]) {
   })
 }
 
+/** 月度预算：管理员可设置（元输入，分提交）；告警由每小时定时扫描驱动 */
+const budgetVisible = ref(false)
+const budgetYuan = ref(100)
+async function loadBudget() { budget.value = await request.get('/t/budget') }
+function openBudget() {
+  budgetYuan.value = budget.value?.budgetCents ? Math.round(budget.value.budgetCents / 100) : 100
+  budgetVisible.value = true
+}
+async function saveBudget() {
+  if (!budgetYuan.value || budgetYuan.value <= 0) { ElMessage.warning('请填写有效预算金额'); return }
+  budget.value = await request.post('/t/budget', { budgetCents: Math.round(budgetYuan.value * 100) })
+  budgetVisible.value = false
+  ElMessage.success('月度预算已保存（消费达 80%/100% 将自动站内告警）')
+}
+
 async function load() {
   data.value = await request.get('/t/overview')
+  loadBudget()
   await nextTick()
   if (trendEl.value && !trendChart) trendChart = echarts.init(trendEl.value)
   if (distEl.value && !distChart) distChart = echarts.init(distEl.value)
@@ -102,6 +122,30 @@ onBeforeUnmount(() => {
         </el-card>
       </div>
 
+      <el-card class="block budget-card">
+        <template #header>
+          <div class="flex-between">
+            <b>月度预算（{{ budget?.period }}）</b>
+            <el-button v-if="auth.user?.role === '管理员'" size="small" type="primary" plain @click="openBudget">
+              {{ budget?.budgetCents ? '调整预算' : '设置预算' }}
+            </el-button>
+          </div>
+        </template>
+        <template v-if="budget?.budgetCents">
+          <el-progress :percentage="Math.min(100, budget.percent ?? 0)"
+            :status="budget.percent >= 100 ? 'exception' : budget.percent >= 80 ? 'warning' : undefined"
+            :stroke-width="14" style="margin-bottom: 8px" />
+          <div class="flex" style="gap: 24px; font-size: 13px">
+            <span>已消费 <b>{{ fmtCents(budget.spentCents) }}</b></span>
+            <span>预算 <b>{{ fmtCents(budget.budgetCents) }}</b></span>
+            <span>剩余 <b>{{ fmtCents(budget.remainingCents) }}</b></span>
+            <el-tag v-if="budget.percent >= 100" type="danger" size="small">预算已用尽</el-tag>
+            <el-tag v-else-if="budget.percent >= 80" type="warning" size="small">接近预算</el-tag>
+          </div>
+        </template>
+        <el-empty v-else description="尚未设置月度预算" :image-size="50" />
+      </el-card>
+
       <div class="charts">
         <el-card>
           <template #header><b>近 7 日消费趋势</b></template>
@@ -132,6 +176,21 @@ onBeforeUnmount(() => {
         </div>
       </el-card>
     </template>
+
+    <el-dialog v-model="budgetVisible" title="设置月度预算" width="420px">
+      <el-form label-width="90px">
+        <el-form-item label="预算金额">
+          <el-input-number v-model="budgetYuan" :min="1" :max="10000000" :step="100" style="width: 200px" />
+          <span class="muted" style="margin-left: 8px">元（本期 {{ budget?.period }}）</span>
+        </el-form-item>
+      </el-form>
+      <el-alert type="info" :closable="false"
+        title="消费达预算 80%/100% 时自动发送站内告警（每小时扫描一次）；调整预算将重置告警标记" />
+      <template #footer>
+        <el-button @click="budgetVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveBudget">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -145,6 +204,7 @@ onBeforeUnmount(() => {
 .charts { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
 .quota { display: flex; align-items: center; gap: 12px; margin: 8px 0; font-size: 13px; }
 .tag-icon { min-width: 150px; }
+.budget-card .flex b { color: #0f172a; }
 .gift { color: #7c3aed; }
 @media (max-width: 1100px) { .cards { grid-template-columns: 1fr 1fr; } .charts { grid-template-columns: 1fr; } }
 </style>

@@ -277,3 +277,17 @@ CREATE TABLE IF NOT EXISTS usage_cursor (
   PRIMARY KEY (id),
   UNIQUE KEY uk_tenant_metric_period (tenant_id, product_id, metric_id, period)
 ) ENGINE=InnoDB COMMENT='阶梯累计游标（分段计价 R10）';
+
+-- 15. 租户月度预算与告警标记（消费达 80%/100% 站内告警，标记位防重复发送）
+CREATE TABLE IF NOT EXISTS budget (
+  id            BIGINT      NOT NULL COMMENT '雪花ID',
+  tenant_id     BIGINT      NOT NULL,
+  period        CHAR(7)     NOT NULL COMMENT '账期 yyyy-MM',
+  budget_cents  BIGINT      NOT NULL COMMENT '预算（分）',
+  notified80    TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '80% 告警已发',
+  notified100   TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '100% 告警已发',
+  created_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at    DATETIME(3) NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_tenant_period (tenant_id, period)
+) ENGINE=InnoDB COMMENT='租户月度预算与告警标记';

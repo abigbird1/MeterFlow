@@ -18,4 +18,8 @@ public interface PlatformClient {
     /** 按 Key 散列取接入上下文（/feign/api-keys/{keyHash}） */
     @GetMapping("/feign/api-keys/{keyHash}")
     Map<String, Object> apiKeyByHash(@PathVariable("keyHash") String keyHash);
+
+    /** 站内通知落库（预算告警等经 platform /feign/notify） */
+    @org.springframework.web.bind.annotation.PostMapping("/feign/notify")
+    Map<String, Object> notify(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> payload);
 }
