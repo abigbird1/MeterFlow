@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -99,6 +100,33 @@ public class BillController {
         // 脱敏：成员角色不回传指纹字段（biz_no）
         page.getRecords().forEach(e -> e.setBizNo(null));
         return Results.ok(new PageResult<>(page.getRecords(), page.getTotal(), pageNum, pageSize));
+    }
+
+    /** Key 维度用量统计（本月，按上报 Key 聚合；SQL 聚合规范 #5.9） */
+    @GetMapping("/keys/stats")
+    public Result<List<Map<String, Object>>> keyStats(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                      @RequestParam(required = false) String period) {
+        Me m = me(authorization);
+        LocalDate monthStart = period == null || period.isBlank()
+                ? LocalDate.now().withDayOfMonth(1)
+                : java.time.YearMonth.parse(period).atDay(1);
+        var qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UsageEvent>()
+                .select("key_id", "COUNT(*) AS cnt", "IFNULL(SUM(cost_amount),0) AS cost")
+                .eq("tenant_id", m.tenantId())
+                .eq("status", "normal")
+                .ge("arrive_time", monthStart.atStartOfDay())
+                .isNotNull("key_id")
+                .groupBy("key_id");
+        List<Map<String, Object>> rows = usageEventMapper.selectMaps(qw);
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("keyId", r.get("key_id"));
+            row.put("events", Integer.parseInt(String.valueOf(r.get("cnt"))));
+            row.put("costCents", com.meterflow.common.utils.Money.toCents(new java.math.BigDecimal(String.valueOf(r.get("cost")))));
+            out.add(row);
+        }
+        return Results.ok(out);
     }
 
     /** 资源包实例抵扣留痕（D2 来源明细，R34） */

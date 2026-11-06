@@ -2,11 +2,12 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/api/request'
-import { fmtTime, STATUS_TEXT, statusType, copyText } from '@/utils/format'
+import { fmtTime, fmtCents, STATUS_TEXT, statusType, copyText } from '@/utils/format'
 
-/** API Key 管理（05 §5.6）：hash 存储 · 明文仅创建/轮换时一次性返回 · 轮换并行 24h · 敏感操作留痕 */
+/** API Key 管理（05 §5.6）：hash 存储 · 明文仅创建/轮换时一次性返回 · 轮换并行 24h · 敏感操作留痕 · Key 维度用量统计 */
 const keys = ref<any[]>([])
 const depts = ref<any[]>([])
+const stats = ref<Map<number, any>>(new Map())
 const loading = ref(false)
 const createVisible = ref(false)
 const formRef = ref()
@@ -34,10 +35,15 @@ async function load() {
   try {
     keys.value = (await request.get('/t/api-keys')) ?? []
     depts.value = flatten((await request.get('/t/org/departments')) ?? [])
+    // Key 维度用量统计（本月，billing 聚合；key_id 上线前的历史事件不计入）
+    const st: any = await request.get('/t/keys/stats', { silent: true })
+    stats.value = new Map(((st ?? []) as any[]).map(r => [Number(r.keyId), r]))
   } finally {
     loading.value = false
   }
 }
+
+function keyStat(id: any) { return stats.value.get(Number(id)) }
 
 async function submitCreate() {
   await formRef.value?.validate().catch(() => Promise.reject())
@@ -84,7 +90,7 @@ onMounted(load)
     <div class="page-head">
       <div>
         <h2>API Key 管理</h2>
-        <p class="muted">hash 存储（明文仅创建/轮换时一次性返回）· 轮换并行 24h · 敏感操作留痕</p>
+        <p class="muted">hash 存储（明文仅创建/轮换时一次性返回）· 轮换并行 24h · 敏感操作留痕 · 本月用量按上报 Key 聚合（历史事件未记录 Key，不计入）</p>
       </div>
       <el-button type="primary" @click="createVisible = true">创建 Key</el-button>
     </div>
@@ -100,6 +106,12 @@ onMounted(load)
         </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><el-tag size="small" :type="statusType(row.status)">{{ STATUS_TEXT[row.status] ?? row.status }}</el-tag></template>
+        </el-table-column>
+        <el-table-column label="本月事件" width="90" align="right">
+          <template #default="{ row }">{{ keyStat(row.id)?.events ?? '—' }}</template>
+        </el-table-column>
+        <el-table-column label="本月消费" width="110" align="right">
+          <template #default="{ row }">{{ keyStat(row.id) ? fmtCents(keyStat(row.id).costCents) : '—' }}</template>
         </el-table-column>
         <el-table-column label="最近使用" width="160"><template #default="{ row }">{{ fmtTime(row.lastUsedAt) }}</template></el-table-column>
         <el-table-column label="操作" width="150" fixed="right">

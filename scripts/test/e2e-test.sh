@@ -185,5 +185,11 @@ BNOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.no
 curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":200000}' >/dev/null
 mysql -uroot -p123456 -e "DELETE FROM meterflow_platform.notification WHERE title='月度预算告警';" 2>/dev/null
 
+echo "=== Key 维度用量统计（新功能） ==="
+STATS=$(curl -s "http://localhost:8080/t/keys/stats" -H "Authorization: Bearer $TOKEN")
+echo "$STATS" | grep -q '"keyId"' && ok "T38a Key 统计聚合（本月）" || bad "T38a Key 统计" "$STATS"
+KID=$(mysql -uroot -p123456 -N -e "SELECT key_id FROM meterflow_billing.usage_event WHERE event_id='ft-gift-$RUN' AND key_id IS NOT NULL LIMIT 1;" 2>/dev/null)
+[ -n "$KID" ] && echo "$STATS" | grep -q "$KID" && ok "T38b 事件记录上报 Key（key_id 写入）" || bad "T38b key_id" "KID=$KID"
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

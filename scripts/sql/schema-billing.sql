@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS product (
 CREATE TABLE IF NOT EXISTS product_metric (
   id           BIGINT        NOT NULL COMMENT '雪花ID',
   product_id   BIGINT        NOT NULL COMMENT '产品ID',
+  key_id       BIGINT        NULL COMMENT '上报 Key（Key 维度统计）',
   metric_key   VARCHAR(32)   NOT NULL COMMENT '指标键：calls/in_tok/out_tok/storage',
   name         VARCHAR(64)   NOT NULL COMMENT '指标名',
   unit         VARCHAR(16)   NOT NULL COMMENT '计价单位：次/千Token/GB·月',

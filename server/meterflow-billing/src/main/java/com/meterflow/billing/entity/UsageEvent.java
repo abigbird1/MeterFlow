@@ -20,6 +20,7 @@ public class UsageEvent {
     private Long deptId;
     private String deptName;
     private Long productId;
+    private Long keyId;
     /** 指标集 JSON {key:原生单位量} */
     private String metrics;
     private String bizNo;

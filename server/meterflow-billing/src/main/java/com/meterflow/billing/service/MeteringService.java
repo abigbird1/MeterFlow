@@ -257,6 +257,7 @@ public class MeteringService {
         e.setDeptId(deptId);
         e.setDeptName(deptName);
         e.setProductId(product.getId());
+        e.setKeyId(ctx.keyId());
         e.setMetrics(toJson(metricsMap(ev.metrics())));
         e.setBizNo(ev.bizNo());
         e.setArriveTime(arrive);
