@@ -42,6 +42,7 @@ public class FeignController {
     private final com.meterflow.billing.mapper.AccountTransactionMapper transactionMapper;
     private final EquityClient equityClient;
     private final com.meterflow.billing.service.BudgetService budgetService;
+    private final com.meterflow.billing.service.AnomalyService anomalyService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
 
@@ -142,6 +143,14 @@ public class FeignController {
     @PostMapping("/budget-check")
     public Result<Integer> budgetCheck() {
         return Results.ok(budgetService.checkAndNotify());
+    }
+
+    /** 消费异常检测手动触发（正常由每日 00:15 @Scheduled 驱动；date 缺省为昨日） */
+    @PostMapping("/anomaly-check")
+    public Result<Integer> anomalyCheck(@RequestParam(required = false) String date) {
+        return Results.ok(anomalyService.scan(date == null || date.isBlank()
+                ? java.time.LocalDate.now().minusDays(1)
+                : java.time.LocalDate.parse(date)));
     }
 
     /** 三口径对账数据束（R26，finance 比对用）：A 计量(priced 事件) / B 计费(抵扣流水含钱包部分) / C 账户(余额扣减) */

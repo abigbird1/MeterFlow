@@ -129,6 +129,29 @@ public class BillController {
         return Results.ok(out);
     }
 
+    /** 部门消费统计（本月，按部门聚合；成员仅本部门——部门级数据隔离） */
+    @GetMapping("/depts/stats")
+    public Result<List<Map<String, Object>>> deptStats(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        Me m = me(authorization);
+        var qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UsageEvent>()
+                .select("dept_id", "IFNULL(MAX(dept_name),'未分配') AS dept_name", "COUNT(*) AS cnt", "IFNULL(SUM(cost_amount),0) AS cost")
+                .eq("tenant_id", m.tenantId())
+                .eq("status", "normal")
+                .ge("arrive_time", LocalDate.now().withDayOfMonth(1).atStartOfDay());
+        if (m.memberDeptId() != null) qw.eq("dept_id", m.memberDeptId());   // 成员仅本部门
+        qw.groupBy("dept_id");
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Map<String, Object> r : usageEventMapper.selectMaps(qw)) {
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("deptId", r.get("dept_id"));
+            row.put("deptName", r.get("dept_name"));
+            row.put("events", Integer.parseInt(String.valueOf(r.get("cnt"))));
+            row.put("costCents", com.meterflow.common.utils.Money.toCents(new java.math.BigDecimal(String.valueOf(r.get("cost")))));
+            out.add(row);
+        }
+        return Results.ok(out);
+    }
+
     /** 资源包实例抵扣留痕（D2 来源明细，R34） */
     @GetMapping("/package-instances/{instanceId}/deductions")
     public Result<PageResult<DeductionItem>> instanceDeductions(@RequestHeader(value = "Authorization", required = false) String authorization,

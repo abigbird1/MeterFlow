@@ -191,5 +191,19 @@ echo "$STATS" | grep -q '"keyId"' && ok "T38a Key 统计聚合（本月）" || b
 KID=$(mysql -uroot -p123456 -N -e "SELECT key_id FROM meterflow_billing.usage_event WHERE event_id='ft-gift-$RUN' AND key_id IS NOT NULL LIMIT 1;" 2>/dev/null)
 [ -n "$KID" ] && echo "$STATS" | grep -q "$KID" && ok "T38b 事件记录上报 Key（key_id 写入）" || bad "T38b key_id" "KID=$KID"
 
+echo "=== 消费异常检测 / 部门统计（新功能） ==="
+D1=$(date -d "1 day ago" +%F 2>/dev/null || date -v-1d +%F)
+D2=$(date -d "2 days ago" +%F 2>/dev/null || date -v-2d +%F)
+mysql -uroot -p123456 -e "INSERT INTO meterflow_billing.usage_event (id, ingest_system, event_id, tenant_id, dept_id, dept_name, product_id, key_id, metrics, arrive_time, price_version, cost_amount, status)
+VALUES ($(date +%s)91, 'anom-e2e', 'anom-b-$RUN', 1001, 1001, '研发部', 1002, NULL, '{}', '$D2 10:00:00', 'v2', 1.0000, 'normal'),
+       ($(date +%s)92, 'anom-e2e', 'anom-s-$RUN', 1001, 1001, '研发部', 1002, NULL, '{}', '$D1 10:00:00', 'v2', 1000.0000, 'normal');" 2>/dev/null
+AC=$(curl -s -X POST "http://localhost:8082/feign/billing/anomaly-check?date=$D1" | jget "['data']")
+[ -n "$AC" ] && [ "$AC" -ge 1 ] 2>/dev/null && ok "T39 消费异常检测(突增告警)" || bad "T39 异常检测" "$AC"
+ANOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null)
+[ "$ANOTIF" -ge 1 ] 2>/dev/null && ok "T40a 异常提醒通知落库" || bad "T40a 通知" "$ANOTIF"
+DSTATS=$(curl -s "http://localhost:8080/t/depts/stats" -H "Authorization: Bearer $TOKEN")
+echo "$DSTATS" | grep -q '"deptName"' && ok "T40b 部门消费统计聚合" || bad "T40b 部门统计" "$DSTATS"
+mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.usage_event WHERE ingest_system='anom-e2e'; DELETE FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

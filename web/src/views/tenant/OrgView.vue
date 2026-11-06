@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/api/request'
-import { STATUS_TEXT, statusType } from '@/utils/format'
+import { STATUS_TEXT, statusType, fmtCents } from '@/utils/format'
 
 /** 组织·成员·角色（05 §5.9）：多级部门树 + 成员管理 + 预设/自定义角色（部门级数据隔离基础） */
 const depts = ref<any[]>([])
@@ -36,6 +36,20 @@ const perms = ref<any[]>([])
 const roleVisible = ref(false)
 const roleForm = reactive({ name: '', perms: '' })
 
+/** 部门本月消费（billing 聚合；管理员看全租户，成员仅本部门） */
+const deptStats = ref<any[]>([])
+const totalCost = computed(() => deptStatRows.value.reduce((s, r) => s + r.costCents, 0))
+const deptStatRows = computed(() => {
+  const m = new Map<string, any>()
+  for (const r of deptStats.value) {
+    const k = r.deptName || '未分配'
+    const cur = m.get(k) ?? { deptName: k, events: 0, costCents: 0 }
+    cur.events += r.events; cur.costCents += r.costCents
+    m.set(k, cur)
+  }
+  return [...m.values()].sort((a, b) => b.costCents - a.costCents)
+})
+
 const deptFlat = computed(() => {
   const out: any[] = []
   const walk = (list: any[], prefix: string) => {
@@ -60,6 +74,7 @@ async function load() {
     depts.value = d ?? []
     members.value = m?.list ?? m ?? []
     roles.value = r ?? []
+    request.get('/t/depts/stats', { silent: true }).then((st: any) => { deptStats.value = st ?? [] })
   } finally {
     loading.value = false
   }
@@ -195,6 +210,23 @@ onMounted(load)
         <el-empty v-if="!roles.length" description="暂无角色" :image-size="50" />
       </el-card>
     </div>
+
+    <el-card class="block">
+      <template #header><b>部门本月消费</b>（按上报事件聚合；管理员看全租户，成员仅本部门）</template>
+      <el-table :data="deptStatRows" size="small">
+        <template #empty><el-empty description="本月暂无部门消费数据" :image-size="50" /></template>
+        <el-table-column prop="deptName" label="部门" min-width="140" />
+        <el-table-column prop="events" label="事件数" width="100" align="right" />
+        <el-table-column label="消费金额" width="130" align="right">
+          <template #default="{ row }"><b>{{ fmtCents(row.costCents) }}</b></template>
+        </el-table-column>
+        <el-table-column label="占比" min-width="200">
+          <template #default="{ row }">
+            <el-progress :percentage="totalCost ? Math.round(row.costCents / totalCost * 100) : 0" :stroke-width="8" />
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-dialog v-model="deptVisible" :title="deptForm.parentId ? '新增子部门' : '新增根部门'" width="420px">
       <el-form label-width="80px">

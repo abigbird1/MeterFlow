@@ -13,10 +13,18 @@ import org.springframework.stereotype.Component;
 public class BillingTaskScheduler {
 
     private final BudgetService budgetService;
+    private final com.meterflow.billing.service.AnomalyService anomalyService;
 
     @Scheduled(cron = "0 10 * * * ?")
     public void budgetAlertScan() {
         int n = budgetService.checkAndNotify();
         if (n > 0) log.info("[TASK] 月度预算告警 {} 条", n);
+    }
+
+    /** 消费异常检测（每日 00:15，日切对账之后对昨日数据扫描） */
+    @Scheduled(cron = "0 15 0 * * ?")
+    public void consumptionAnomalyScan() {
+        int n = anomalyService.scan(java.time.LocalDate.now().minusDays(1));
+        if (n > 0) log.info("[TASK] 消费异常提醒 {} 条", n);
     }
 }
