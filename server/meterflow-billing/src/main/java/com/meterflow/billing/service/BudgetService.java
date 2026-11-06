@@ -53,9 +53,12 @@ public class BudgetService {
             return out;
         }
         long budgetCents = b.getBudgetCents();
+        int warnRatio = b.getWarnRatio() == null ? 80 : b.getWarnRatio();
+        int critRatio = b.getCritRatio() == null ? 100 : b.getCritRatio();
         out.put("budgetCents", budgetCents);
         out.put("percent", budgetCents > 0 ? Math.min(999, spentCents * 100 / budgetCents) : 0);
         out.put("remainingCents", Math.max(0, budgetCents - spentCents));
+        out.put("warnRatio", warnRatio); out.put("critRatio", critRatio);
         out.put("notified80", Boolean.TRUE.equals(b.getNotified80()));
         out.put("notified100", Boolean.TRUE.equals(b.getNotified100()));
         return out;
@@ -63,7 +66,7 @@ public class BudgetService {
 
     /** 设置本期预算（覆盖式 upsert；新预算重置告警标记，预算上调后应重新告警观察） */
     @Transactional
-    public Map<String, Object> upsert(Long tenantId, long budgetCents) {
+    public Map<String, Object> upsert(Long tenantId, long budgetCents, int warnRatio, int critRatio) {
         String period = currentPeriod();
         Budget b = budgetMapper.selectOne(new LambdaQueryWrapper<Budget>()
                 .eq(Budget::getTenantId, tenantId).eq(Budget::getPeriod, period).last("limit 1"));
@@ -71,11 +74,13 @@ public class BudgetService {
             b = new Budget();
             b.setTenantId(tenantId); b.setPeriod(period); b.setBudgetCents(budgetCents);
             b.setNotified80(false); b.setNotified100(false);
+            b.setWarnRatio(warnRatio); b.setCritRatio(critRatio);
             b.setCreatedAt(LocalDateTime.now());
             budgetMapper.insert(b);
         } else {
             b.setBudgetCents(budgetCents);
             b.setNotified80(false); b.setNotified100(false);
+            b.setWarnRatio(warnRatio); b.setCritRatio(critRatio);
             b.setUpdatedAt(LocalDateTime.now());
             budgetMapper.updateById(b);
         }
@@ -103,14 +108,16 @@ public class BudgetService {
             long budgetCents = b.getBudgetCents();
             if (budgetCents <= 0) continue;
 
-            if (spentCents >= budgetCents && !Boolean.TRUE.equals(b.getNotified100())) {
-                notify(b.getTenantId(), String.format("本期预算已用尽：消费 %.2f 元 / 预算 %.2f 元（100%%），请及时充值或调整预算", spentCents / 100.0, budgetCents / 100.0));
+            int critRatio = b.getCritRatio() == null ? 100 : b.getCritRatio();
+            int warnRatio = b.getWarnRatio() == null ? 80 : b.getWarnRatio();
+            if (spentCents >= budgetCents * critRatio / 100 && !Boolean.TRUE.equals(b.getNotified100())) {
+                notify(b.getTenantId(), String.format("本期预算已用 %d%%：消费 %.2f 元 / 预算 %.2f 元，请及时充值或调整预算", critRatio, spentCents / 100.0, budgetCents / 100.0));
                 b.setNotified100(true);
                 b.setNotified80(true);   // 100% 已覆盖 80% 阈值，避免下一轮再补发 80% 告警
                 b.setUpdatedAt(LocalDateTime.now());
                 budgetMapper.updateById(b);
                 notified++;
-            } else if (spentCents >= budgetCents * 80 / 100 && !Boolean.TRUE.equals(b.getNotified80())) {
+            } else if (spentCents >= budgetCents * warnRatio / 100 && !Boolean.TRUE.equals(b.getNotified80())) {
                 notify(b.getTenantId(), String.format("本期预算已使用 %d%%（%.2f / %.2f 元），请注意消费节奏", spentCents * 100 / budgetCents, spentCents / 100.0, budgetCents / 100.0));
                 b.setNotified80(true);
                 b.setUpdatedAt(LocalDateTime.now());

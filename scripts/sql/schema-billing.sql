@@ -287,6 +287,8 @@ CREATE TABLE IF NOT EXISTS budget (
   budget_cents  BIGINT      NOT NULL COMMENT '预算（分）',
   notified80    TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '80% 告警已发',
   notified100   TINYINT(1)  NOT NULL DEFAULT 0 COMMENT '100% 告警已发',
+  warn_ratio    INT         NOT NULL DEFAULT 80 COMMENT '预警阈值%',
+  crit_ratio    INT         NOT NULL DEFAULT 100 COMMENT '用尽阈值%',
   created_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at    DATETIME(3) NULL,
   PRIMARY KEY (id),

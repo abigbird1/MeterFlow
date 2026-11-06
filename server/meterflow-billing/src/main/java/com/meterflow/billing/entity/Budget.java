@@ -18,6 +18,8 @@ public class Budget {
     private Long budgetCents;
     private Boolean notified80;
     private Boolean notified100;
+    private Integer warnRatio;
+    private Integer critRatio;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

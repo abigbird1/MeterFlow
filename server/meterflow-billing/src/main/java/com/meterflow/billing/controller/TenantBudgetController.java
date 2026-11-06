@@ -43,7 +43,7 @@ public class TenantBudgetController {
         return Results.ok(budgetService.status(me.tenantId()));
     }
 
-    public record SetRequest(@NotNull Long budgetCents) {}
+    public record SetRequest(@NotNull Long budgetCents, Integer warnRatio, Integer critRatio) {}
 
     @PostMapping
     public Result<Map<String, Object>> set(@RequestHeader(value = "Authorization", required = false) String authorization,
@@ -55,6 +55,11 @@ public class TenantBudgetController {
         if (req.budgetCents() == null || req.budgetCents() <= 0 || req.budgetCents() > 10_000_000_00L) {
             throw new BusinessException("BIL-4005", "预算需在 0.01 元 ~ 1000 万元之间");
         }
-        return Results.ok(budgetService.upsert(me.tenantId(), req.budgetCents()));
+        int warnRatio = req.warnRatio() == null ? 80 : req.warnRatio();
+        int critRatio = req.critRatio() == null ? 100 : req.critRatio();
+        if (warnRatio < 1 || warnRatio > 99 || critRatio < 2 || critRatio > 100 || warnRatio >= critRatio) {
+            throw new BusinessException("BIL-4005", "告警阈值需满足 1 ≤ 预警 < 用尽 ≤ 100");
+        }
+        return Results.ok(budgetService.upsert(me.tenantId(), req.budgetCents(), warnRatio, critRatio));
     }
 }

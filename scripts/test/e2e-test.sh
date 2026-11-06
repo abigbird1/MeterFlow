@@ -205,5 +205,15 @@ DSTATS=$(curl -s "http://localhost:8080/t/depts/stats" -H "Authorization: Bearer
 echo "$DSTATS" | grep -q '"deptName"' && ok "T40b 部门消费统计聚合" || bad "T40b 部门统计" "$DSTATS"
 mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.usage_event WHERE ingest_system='anom-e2e'; DELETE FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null
 
+echo "=== 环比与自定义阈值（新功能） ==="
+OV=$(curl -s http://localhost:8080/t/overview -H "Authorization: Bearer $TOKEN")
+echo "$OV" | grep -q "lastMonthSpendAmount" && ok "T41 总览月度环比字段" || bad "T41 环比" "$OV"
+curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":1,"warnRatio":50,"critRatio":60}' >/dev/null
+curl -s -X POST http://localhost:8082/feign/billing/budget-check >/dev/null
+CTXT=$(mysql -uroot -p123456 --default-character-set=utf8mb4 -N -e "SELECT content FROM meterflow_platform.notification WHERE title='月度预算告警' ORDER BY id DESC LIMIT 1;" 2>/dev/null)
+echo "$CTXT" | grep -q "已用 60%" && ok "T42 自定义告警阈值(50/60)" || bad "T42 自定义阈值" "$CTXT"
+curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":200000}' >/dev/null
+mysql -uroot -p123456 -e "DELETE FROM meterflow_platform.notification WHERE title='月度预算告警';" 2>/dev/null
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

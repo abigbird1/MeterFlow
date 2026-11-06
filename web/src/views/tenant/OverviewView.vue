@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 import { fmtCents } from '@/utils/format'
@@ -16,6 +16,16 @@ let trendChart: echarts.ECharts | null = null
 let distChart: echarts.ECharts | null = null
 
 const stageText: Record<string, string> = { normal: '正常', warning: '预警（停高消费产品）', suspended: '已停服' }
+
+/** 月度环比：本月至今 vs 上月同期（%）；负增长绿色（省），正增长红色 */
+const growthText = computed(() => {
+  const g = data.value?.monthGrowthPercent
+  return g == null ? '' : (g >= 0 ? '↑ +' : '↓ ') + g + '%'
+})
+const growthColor = computed(() => {
+  const g = data.value?.monthGrowthPercent
+  return g == null ? '#94a3b8' : g >= 0 ? '#dc2626' : '#059669'
+})
 
 function renderTrend(byDay: Record<string, string>) {
   const days = Object.keys(byDay).sort()
@@ -47,16 +57,24 @@ function renderDist(events: any[]) {
 /** 月度预算：管理员可设置（元输入，分提交）；告警由每小时定时扫描驱动 */
 const budgetVisible = ref(false)
 const budgetYuan = ref(100)
+const warnRatio = ref(80)
+const critRatio = ref(100)
 async function loadBudget() { budget.value = await request.get('/t/budget') }
 function openBudget() {
   budgetYuan.value = budget.value?.budgetCents ? Math.round(budget.value.budgetCents / 100) : 100
+  warnRatio.value = budget.value?.warnRatio ?? 80
+  critRatio.value = budget.value?.critRatio ?? 100
   budgetVisible.value = true
 }
 async function saveBudget() {
   if (!budgetYuan.value || budgetYuan.value <= 0) { ElMessage.warning('请填写有效预算金额'); return }
-  budget.value = await request.post('/t/budget', { budgetCents: Math.round(budgetYuan.value * 100) })
+  if (warnRatio.value >= critRatio.value) { ElMessage.warning('预警阈值需小于用尽阈值'); return }
+  budget.value = await request.post('/t/budget', {
+    budgetCents: Math.round(budgetYuan.value * 100),
+    warnRatio: warnRatio.value, critRatio: critRatio.value,
+  })
   budgetVisible.value = false
-  ElMessage.success('月度预算已保存（消费达 80%/100% 将自动站内告警）')
+  ElMessage.success(`月度预算已保存（达 ${warnRatio.value}%/ ${critRatio.value}% 自动站内告警）`)
 }
 
 async function load() {
@@ -108,7 +126,11 @@ onBeforeUnmount(() => {
         <el-card class="stat-card">
           <div class="k">本月消费</div>
           <div class="v">¥{{ data.monthSpendAmount }}</div>
-          <div class="s">实时逐笔累计（日切快照定案前）</div>
+          <div class="s" v-if="data.lastMonthSpendAmount != null && data.lastMonthSpendAmount !== '0.00'">
+            上月同期 ¥{{ data.lastMonthSpendAmount }}
+            <b :style="{ color: growthColor }">{{ growthText }}</b>
+          </div>
+          <div class="s" v-else>实时逐笔累计（日切快照定案前）</div>
         </el-card>
         <el-card class="stat-card">
           <div class="k">本月事件数</div>
@@ -133,14 +155,14 @@ onBeforeUnmount(() => {
         </template>
         <template v-if="budget?.budgetCents">
           <el-progress :percentage="Math.min(100, budget.percent ?? 0)"
-            :status="budget.percent >= 100 ? 'exception' : budget.percent >= 80 ? 'warning' : undefined"
+            :status="budget.percent >= (budget.critRatio ?? 100) ? 'exception' : budget.percent >= (budget.warnRatio ?? 80) ? 'warning' : undefined"
             :stroke-width="14" style="margin-bottom: 8px" />
           <div class="flex" style="gap: 24px; font-size: 13px">
             <span>已消费 <b>{{ fmtCents(budget.spentCents) }}</b></span>
             <span>预算 <b>{{ fmtCents(budget.budgetCents) }}</b></span>
             <span>剩余 <b>{{ fmtCents(budget.remainingCents) }}</b></span>
-            <el-tag v-if="budget.percent >= 100" type="danger" size="small">预算已用尽</el-tag>
-            <el-tag v-else-if="budget.percent >= 80" type="warning" size="small">接近预算</el-tag>
+            <el-tag v-if="budget.percent >= (budget.critRatio ?? 100)" type="danger" size="small">预算已用尽</el-tag>
+            <el-tag v-else-if="budget.percent >= (budget.warnRatio ?? 80)" type="warning" size="small">接近预算</el-tag>
           </div>
         </template>
         <el-empty v-else description="尚未设置月度预算" :image-size="50" />
@@ -183,9 +205,15 @@ onBeforeUnmount(() => {
           <el-input-number v-model="budgetYuan" :min="1" :max="10000000" :step="100" style="width: 200px" />
           <span class="muted" style="margin-left: 8px">元（本期 {{ budget?.period }}）</span>
         </el-form-item>
+        <el-form-item label="预警阈值">
+          <el-slider v-model="warnRatio" :min="1" :max="99" style="width: 200px" show-input :show-input-controls="false" />
+        </el-form-item>
+        <el-form-item label="用尽阈值">
+          <el-slider v-model="critRatio" :min="2" :max="100" style="width: 200px" show-input :show-input-controls="false" />
+        </el-form-item>
       </el-form>
       <el-alert type="info" :closable="false"
-        title="消费达预算 80%/100% 时自动发送站内告警（每小时扫描一次）；调整预算将重置告警标记" />
+        title="消费达阈值时自动发送站内告警（每小时扫描一次）；调整预算将重置告警标记" />
       <template #footer>
         <el-button @click="budgetVisible = false">取消</el-button>
         <el-button type="primary" @click="saveBudget">保存</el-button>

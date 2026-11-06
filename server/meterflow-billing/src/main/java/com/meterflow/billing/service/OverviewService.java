@@ -60,6 +60,21 @@ public class OverviewService {
         // 7 日趋势（元/日）
         out.put("dailyTrend", byDay);
 
+        // 上月同期（1 日 ~ 本月同日）累计消费，供环比展示
+        LocalDateTime lastStart = monthStart.minusMonths(1);
+        LocalDateTime lastEnd = lastStart.plusDays(LocalDate.now().getDayOfMonth());
+        var qwLast = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UsageEvent>()
+                .select("IFNULL(SUM(cost_amount),0) AS total")
+                .eq("tenant_id", tenantId)
+                .ge("arrive_time", lastStart).lt("arrive_time", lastEnd);
+        if (memberDeptId != null) qwLast.eq("dept_id", memberDeptId);
+        List<Map<String, Object>> lastRows = usageEventMapper.selectMaps(qwLast);
+        BigDecimal lastSpend = new BigDecimal(String.valueOf(lastRows.isEmpty() ? BigDecimal.ZERO : lastRows.get(0).get("total")));
+        out.put("lastMonthSpendAmount", lastSpend.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
+        out.put("monthGrowthPercent", lastSpend.signum() > 0
+                ? monthSpend.subtract(lastSpend).multiply(java.math.BigDecimal.valueOf(100)).divide(lastSpend, 0, java.math.RoundingMode.HALF_UP).intValue()
+                : null);
+
         // 余额（成员角色不展示租户级余额：置 null 由前端隐藏）
         if (acc != null && memberDeptId == null) {
             out.put("balanceCents", acc.getBalanceCents());
