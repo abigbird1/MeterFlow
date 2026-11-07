@@ -215,5 +215,16 @@ echo "$CTXT" | grep -q "已用 60%" && ok "T42 自定义告警阈值(50/60)" || 
 curl -s -X POST http://localhost:8080/t/budget -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"budgetCents":200000}' >/dev/null
 mysql -uroot -p123456 -e "DELETE FROM meterflow_platform.notification WHERE title='月度预算告警';" 2>/dev/null
 
+echo "=== 资源包到期提醒（新功能） ==="
+mysql -uroot -p123456 -e "INSERT INTO meterflow_billing.package_instance (id, tenant_id, pkg_type, title, product_id, metric_key, total, remaining, unit, expire_date, status, source_order_no, created_at)
+VALUES (UNIX_TIMESTAMP()*1000+7, 1001, 'spec', 'E2E到期包', 1001, 'out_tok', 100000, 90000, 'Token', DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'active', 'PO-E2E-EXPIRE', NOW());" 2>/dev/null
+EXC=$(curl -s -X POST http://localhost:8082/feign/billing/package-expire-check | jget "['data']")
+[ -n "$EXC" ] && [ "$EXC" -ge 1 ] 2>/dev/null && ok "T43a 到期提醒扫描(7/3天+过期转态)" || bad "T43a 到期扫描" "$EXC"
+ENOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.notification WHERE title LIKE '%资源包%';" 2>/dev/null)
+[ "$ENOTIF" -ge 1 ] 2>/dev/null && ok "T43b 到期提醒通知落库" || bad "T43b 通知" "$ENOTIF"
+EXC2=$(curl -s -X POST http://localhost:8082/feign/billing/package-expire-check | jget "['data']")
+[ "$EXC2" = "0" ] 2>/dev/null && ok "T43c 提醒幂等(标记位防重发)" || bad "T43c 幂等" "$EXC2"
+mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.package_instance WHERE title='E2E到期包'; DELETE FROM meterflow_platform.notification WHERE title LIKE '%资源包%';" 2>/dev/null
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

@@ -26,10 +26,14 @@ public class OutboxRelayService {
     private final OutboxMessageMapper outboxMapper;
     private final BillingCallbackClient billingCallbackClient;
 
+    /** 重试上限：超过后转入 failed 终态（毒消息隔离，保留留痕供人工处置；MQ 阶段对应死信） */
+    private static final int MAX_RETRY = 50;
+
     @Scheduled(fixedDelay = 2000)
     public void relay() {
         List<OutboxMessage> pending = outboxMapper.selectList(new LambdaQueryWrapper<OutboxMessage>()
                 .eq(OutboxMessage::getStatus, "init")
+                .and(w -> w.isNull(OutboxMessage::getNextRetryAt).or().le(OutboxMessage::getNextRetryAt, LocalDateTime.now()))
                 .orderByAsc(OutboxMessage::getId)
                 .last("limit 20"));
         for (OutboxMessage msg : pending) {
@@ -42,11 +46,18 @@ public class OutboxRelayService {
                 msg.setUpdatedAt(LocalDateTime.now());
                 outboxMapper.updateById(msg);
             } catch (Exception e) {
-                msg.setRetryCount(msg.getRetryCount() == null ? 1 : msg.getRetryCount() + 1);
-                msg.setNextRetryAt(LocalDateTime.now().plusSeconds(10));
+                int retry = (msg.getRetryCount() == null ? 0 : msg.getRetryCount()) + 1;
+                msg.setRetryCount(retry);
                 msg.setUpdatedAt(LocalDateTime.now());
+                if (retry >= MAX_RETRY) {
+                    // 毒消息终态：来源单据已不存在/持续失败，停止重试避免拖垮投递通道（留痕待人工处置）
+                    msg.setStatus("failed");
+                    log.error("[OUTBOX] {} 超过最大重试次数（{}），转 failed 终态", msg.getBizKey(), retry);
+                } else {
+                    msg.setNextRetryAt(LocalDateTime.now().plusSeconds(Math.min(60, 10L * retry)));   // 递增退避
+                    log.warn("[OUTBOX] 投递失败 {} retry={}: {}", msg.getBizKey(), retry, e.getMessage());
+                }
                 outboxMapper.updateById(msg);
-                log.warn("[OUTBOX] 投递失败 {} retry={}: {}", msg.getBizKey(), msg.getRetryCount(), e.getMessage());
             }
         }
     }

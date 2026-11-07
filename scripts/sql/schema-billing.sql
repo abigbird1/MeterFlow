@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS package_instance (
   unit            VARCHAR(16)   NOT NULL COMMENT 'Token/次/元',
   expire_date     DATE          NOT NULL COMMENT '有效期至（到期清零 R33）',
   status          VARCHAR(16)   NOT NULL DEFAULT 'active' COMMENT 'active/exhausted/expired',
+  remind7         TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '7天到期提醒已发',
+  remind3         TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '3天到期提醒已发',
   source_order_no VARCHAR(32)   NOT NULL COMMENT '来源订单号（equity 库，MQ 事件发放 S4）',
   created_at      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),

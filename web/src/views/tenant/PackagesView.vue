@@ -4,6 +4,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/api/request'
 import { fmtCents, fmtTime, STATUS_TEXT, statusType } from '@/utils/format'
 
+/** 7 天内到期 → 预警 tag（提醒由每日 00:30 定时任务站内推送） */
+function expiringSoon(row: any) {
+  if (!row.expireDate || row.status !== 'active') return false
+  const days = (new Date(row.expireDate).getTime() - Date.now()) / 86400000
+  return days <= 7
+}
+
 /** 资源包中心（05 §5.4）：商品抢购（三重限制 R31/R32，下单锁库存 15 分钟）+ 我的实例 + 抵扣留痕（R34） */
 const hall = ref<any[]>([])
 const mine = ref<any[]>([])
@@ -106,7 +113,12 @@ onMounted(load)
         <el-table-column prop="productId" label="适用产品" width="90">
           <template #default="{ row }">{{ row.productId ? `#${row.productId}` : '通用' }}</template>
         </el-table-column>
-        <el-table-column prop="expireDate" label="有效期至" width="110" />
+        <el-table-column label="有效期至" width="150">
+          <template #default="{ row }">
+            {{ row.expireDate }}
+            <el-tag v-if="expiringSoon(row)" size="small" type="warning">即将到期</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><el-tag size="small" :type="statusType(row.status)">{{ STATUS_TEXT[row.status] ?? row.status }}</el-tag></template>
         </el-table-column>

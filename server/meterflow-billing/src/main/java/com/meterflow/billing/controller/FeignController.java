@@ -43,6 +43,7 @@ public class FeignController {
     private final EquityClient equityClient;
     private final com.meterflow.billing.service.BudgetService budgetService;
     private final com.meterflow.billing.service.AnomalyService anomalyService;
+    private final com.meterflow.billing.service.PackageExpireService packageExpireService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
 
@@ -143,6 +144,12 @@ public class FeignController {
     @PostMapping("/budget-check")
     public Result<Integer> budgetCheck() {
         return Results.ok(budgetService.checkAndNotify());
+    }
+
+    /** 资源包到期提醒手动触发（正常由每日 00:30 @Scheduled 驱动） */
+    @PostMapping("/package-expire-check")
+    public Result<Integer> packageExpireCheck() {
+        return Results.ok(packageExpireService.scan());
     }
 
     /** 消费异常检测手动触发（正常由每日 00:15 @Scheduled 驱动；date 缺省为昨日） */

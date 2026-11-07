@@ -27,5 +27,7 @@ public class PackageInstance {
     private LocalDate expireDate;
     /** active/exhausted/expired */
     private String status;
+    private Boolean remind7;
+    private Boolean remind3;
     private String sourceOrderNo;
 }
