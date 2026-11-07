@@ -253,5 +253,18 @@ for i in 1 2 3 4 5 6 7 8; do
 done
 [ "$LCONFIRMED" -ge 1 ] 2>/dev/null && ok "T46 计费完成事件出站投 MQ(confirmed)" || bad "T46 出站事件总线" "$LCONFIRMED"
 
+echo "=== Nacos 配置中心动态化（新功能） ==="
+D1=$(date -d "1 day ago" +%F 2>/dev/null || date -v-1d +%F)
+mysql -uroot -p123456 -e "INSERT INTO meterflow_billing.usage_event (id, ingest_system, event_id, tenant_id, dept_id, dept_name, product_id, metrics, arrive_time, price_version, cost_amount, status)
+VALUES ($(date +%s)71, 'cfg2', 'cfg2-s-$RUN', 1001, 1001, '研发部', 1002, '{}', '$D1 10:00:00', 'v2', 5000.0000, 'normal');" 2>/dev/null
+NPUB="$(dirname "$0")/nacos-pub.sh"
+bash "$NPUB" 1 1 >/dev/null; sleep 5
+C1=$(curl -s -X POST "http://localhost:8082/feign/billing/anomaly-check?date=$D1" | jget "['data']")
+bash "$NPUB" 1 600000 >/dev/null; sleep 5
+C2=$(curl -s -X POST "http://localhost:8082/feign/billing/anomaly-check?date=$D1" | jget "['data']")
+[ "$C1" -ge 1 ] 2>/dev/null && [ "$C2" = "0" ] 2>/dev/null && ok "T47 Nacos 阈值动态生效(floor 1→600000 行为翻转)" || bad "T47 配置动态化" "C1=$C1 C2=$C2"
+bash "$NPUB" 5 1000 >/dev/null
+mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.usage_event WHERE ingest_system='cfg2'; DELETE FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

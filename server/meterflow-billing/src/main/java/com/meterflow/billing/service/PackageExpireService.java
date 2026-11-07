@@ -12,11 +12,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 资源包到期提醒与过期转态（R33 生命周期收口）：每日 00:30 扫描，标记位防重复提醒 */
+/** 资源包到期提醒与过期转态（R33 生命周期收口）：每日 00:30 扫描，标记位防重复提醒。
+ *  余量提醒比例由 Nacos 配置中心动态下发（@RefreshScope）。 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.cloud.context.config.annotation.RefreshScope
 public class PackageExpireService {
+
+    @org.springframework.beans.factory.annotation.Value("${meterflow.package.low-remaining-percent:10}")
+    private int lowRemainingPercent;
 
     private final PackageInstanceMapper packageMapper;
     private final PlatformClient platformClient;
@@ -36,7 +41,7 @@ public class PackageExpireService {
         List<PackageInstance> lowList = packageMapper.selectList(new LambdaQueryWrapper<PackageInstance>()
                 .eq(PackageInstance::getStatus, "active")
                 .eq(PackageInstance::getLowNotified, false)
-                .apply("total > 0 AND remaining <= total * 0.1"));
+                .apply("total > 0 AND remaining <= total * " + (lowRemainingPercent / 100.0)));
         for (PackageInstance p : lowList) {
             notify(p.getTenantId(), "资源包余量不足",
                     String.format("资源包「%s」余量仅剩 %s %s（≤10%%），请关注用量或补充资源包", p.getTitle(), p.getRemaining(), p.getUnit()));

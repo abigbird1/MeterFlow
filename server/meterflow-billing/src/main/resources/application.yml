@@ -4,15 +4,16 @@ server:
 spring:
   application:
     name: meterflow-billing
+  config:
+    import: optional:nacos:meterflow-billing.yml   # Nacos 配置中心（optional：无配置也能启动）
   cloud:
     nacos:
+      config:
+        server-addr: 127.0.0.1:8848                # 配置中心（告警阈值等动态下发）
+        enabled: true
       discovery:
         enabled: true           # 服务注册（Nacos standalone 127.0.0.1:8848）
         server-addr: 127.0.0.1:8848
-      config:
-        enabled: false
-        server-addr: 127.0.0.1:8848
-        file-extension: yml
   datasource:                     # 数据模型：meterflow_billing 库（04 schema-billing.sql）；ShardingSphere-JDBC 按月分表在数据落地阶段接入
     url: jdbc:mysql://127.0.0.1:3306/meterflow_billing?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
@@ -43,7 +44,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,env
 
 # 设计基线 Java 21：开启虚拟线程（本机 JDK 17 骨架保持关闭）
 # spring.threads.virtual.enabled: true

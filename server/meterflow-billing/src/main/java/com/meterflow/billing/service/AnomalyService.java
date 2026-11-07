@@ -15,18 +15,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 消费异常检测：昨日消费对比前 7 日日均，突增超阈值自动站内提醒（费用异常风险前置发现） */
+/** 消费异常检测：昨日消费对比前 7 日日均，突增超阈值自动站内提醒。
+ *  阈值（倍数/绝对下限）由 Nacos 配置中心动态下发（@RefreshScope，改配置即生效）。 */
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@org.springframework.cloud.context.config.annotation.RefreshScope
 public class AnomalyService {
 
     private final UsageEventMapper usageEventMapper;
     private final PlatformClient platformClient;
 
-    /** 突增倍数阈值（昨日 > 前七日日均 × 5）与绝对下限（>10 元），骨架内置常量；平台配置化在配置面阶段接入 */
-    private static final int RATIO = 5;
-    private static final long FLOOR_CENTS = 1000;
+    @org.springframework.beans.factory.annotation.Value("${meterflow.anomaly.ratio:5}")
+    private int ratio;
+
+    @org.springframework.beans.factory.annotation.Value("${meterflow.anomaly.floor-cents:1000}")
+    private long floorCents;
 
     /**
      * 扫描指定业务日的消费异常（每日 00:15 对昨日驱动；feign 手动触发供运维/测试）。
@@ -46,9 +50,9 @@ public class AnomalyService {
         for (var en : daySpend.entrySet()) {
             long tenantId = en.getKey();
             long today = en.getValue();
-            if (today <= FLOOR_CENTS) continue;                       // 绝对下限内不告警
+            if (today <= floorCents) continue;                        // 绝对下限内不告警
             long avg = weekSpend.getOrDefault(tenantId, 0L) / 7;      // 无消费日均按 0
-            if (avg <= 0 || today > avg * RATIO) {
+            if (avg <= 0 || today > avg * ratio) {
                 long ratio = avg > 0 ? today / avg : 0;
                 notify(tenantId, String.format(
                         "检测到消费异常：%s 消费 %.2f 元，为前 7 日日均（%.2f 元）的 %d 倍。如非预期请检查 API Key 使用与业务调用情况",
