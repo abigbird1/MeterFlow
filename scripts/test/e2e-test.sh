@@ -244,5 +244,14 @@ done
 [ "$BNOTIF" -ge 1 ] 2>/dev/null && ok "T45 出账自动通知租户" || bad "T45 出账通知" "$NP|$BNOTIF"
 mysql -uroot -p123456 -e "DELETE FROM meterflow_finance.bill WHERE period='2027-02'; DELETE FROM meterflow_finance.bill_section WHERE bill_id NOT IN (SELECT id FROM meterflow_finance.bill); DELETE FROM meterflow_finance.bill_dept_sub WHERE bill_id NOT IN (SELECT id FROM meterflow_finance.bill); DELETE FROM meterflow_finance.task_instance WHERE biz_key LIKE '1001:2027-02'; DELETE FROM meterflow_platform.notification WHERE title='账单已出';" 2>/dev/null
 
+echo "=== 出站事件总线（新功能） ==="
+LCONFIRMED=0
+for i in 1 2 3 4 5 6 7 8; do
+  LCONFIRMED=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_billing.local_message WHERE status='confirmed';" 2>/dev/null)
+  [ "$LCONFIRMED" -ge 1 ] 2>/dev/null && break
+  sleep 1
+done
+[ "$LCONFIRMED" -ge 1 ] 2>/dev/null && ok "T46 计费完成事件出站投 MQ(confirmed)" || bad "T46 出站事件总线" "$LCONFIRMED"
+
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

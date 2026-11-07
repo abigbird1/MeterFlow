@@ -32,6 +32,18 @@ public class PackageExpireService {
         int notified = 0;
         notified += remindBatch(today.plusDays(7), today, "资源包 7 天内到期", 7, false);
         notified += remindBatch(today.plusDays(3), today, "资源包 3 天内到期", 3, true);
+        // 余量不足提醒（≤10% 且未提醒）：耗尽预警（R33 生命周期）
+        List<PackageInstance> lowList = packageMapper.selectList(new LambdaQueryWrapper<PackageInstance>()
+                .eq(PackageInstance::getStatus, "active")
+                .eq(PackageInstance::getLowNotified, false)
+                .apply("total > 0 AND remaining <= total * 0.1"));
+        for (PackageInstance p : lowList) {
+            notify(p.getTenantId(), "资源包余量不足",
+                    String.format("资源包「%s」余量仅剩 %s %s（≤10%%），请关注用量或补充资源包", p.getTitle(), p.getRemaining(), p.getUnit()));
+            p.setLowNotified(true);
+            packageMapper.updateById(p);
+            notified++;
+        }
         // 过期转态（R33：到期清零，实例转 expired 保留留痕）
         List<PackageInstance> expired = packageMapper.selectList(new LambdaQueryWrapper<PackageInstance>()
                 .eq(PackageInstance::getStatus, "active")

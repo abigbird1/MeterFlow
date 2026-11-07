@@ -29,5 +29,6 @@ public class PackageInstance {
     private String status;
     private Boolean remind7;
     private Boolean remind3;
+    private Boolean lowNotified;
     private String sourceOrderNo;
 }
