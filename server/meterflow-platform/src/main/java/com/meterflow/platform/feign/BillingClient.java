@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Map;
 
 /** billing 内部只读（租户列表余额聚合） */
-@FeignClient(name = "meterflow-billing", url = "${meterflow.billing-url:http://localhost:8082}")
+@FeignClient(name = "meterflow-billing", contextId = "billingClient")
 public interface BillingClient {
 
     @GetMapping("/feign/billing/accounts/{tenantId}")

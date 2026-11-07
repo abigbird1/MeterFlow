@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import java.util.Map;
 
 /** platform 服务 Feign 客户端（身份解析 + Key 上下文；本地直连 URL，Nacos 启用后切服务名） */
-@FeignClient(name = "meterflow-platform", url = "${meterflow.platform-url:http://localhost:8081}")
+@FeignClient(name = "meterflow-platform", contextId = "platformClient")
 public interface PlatformClient {
 
     /** Bearer 透传解析当前身份（/auth/me） */

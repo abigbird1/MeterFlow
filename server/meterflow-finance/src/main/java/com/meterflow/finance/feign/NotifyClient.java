@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.Map;
 
 /** platform 内部通知触达（A3/D6：站内通知经 /feign/notify 落库） */
-@FeignClient(name = "meterflow-platform-notify", url = "${meterflow.platform-url:http://localhost:8081}")
+@FeignClient(name = "meterflow-platform", contextId = "notifyClient")
 public interface NotifyClient {
 
     @PostMapping("/feign/notify")

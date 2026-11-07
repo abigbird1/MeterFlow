@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Map;
 
 /** goods 只读详情（供 billing 回查，方案 B） */
-@FeignClient(name = "meterflow-equity-goods", url = "${meterflow.equity-url:http://localhost:8083}")
+@FeignClient(name = "meterflow-equity", contextId = "goodsClient")
 public interface GoodsClient {
     @GetMapping("/feign/goods/{goodsId}")
     Map<String, Object> goods(@PathVariable("goodsId") Long goodsId);

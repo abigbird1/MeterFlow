@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.List;
 
 /** billing 回调客户端（S4：outbox relay 投递"订单已支付"→ 发放实例；MQ 接入后替换投递通道） */
-@FeignClient(name = "meterflow-billing", url = "${meterflow.billing-url:http://localhost:8082}")
+@FeignClient(name = "meterflow-billing", contextId = "billingCallbackClient")
 public interface BillingCallbackClient {
 
     @PostMapping("/feign/billing/package-instances/grant")
