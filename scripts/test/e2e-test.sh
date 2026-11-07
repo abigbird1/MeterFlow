@@ -138,8 +138,8 @@ def hit(i):
         with urllib.request.urlopen(req, timeout=10) as r: return r.status
     except urllib.error.HTTPError as e: return e.code
     except Exception: return "err"
-with concurrent.futures.ThreadPoolExecutor(150) as ex:
-    codes = list(ex.map(hit, range(600)))
+with concurrent.futures.ThreadPoolExecutor(200) as ex:
+    codes = list(ex.map(hit, range(1500)))   # lb 路由后单机突发略降，1500 保障越过 500 TPS
 print(429 in codes and "yes" or "no")
 PYEOF
 )

@@ -7,7 +7,7 @@ spring:
   cloud:
     nacos:
       discovery:
-        enabled: false          # 骨架默认关闭；启动 Nacos 后置 true
+        enabled: true           # 服务注册（Nacos standalone 127.0.0.1:8848）
         server-addr: 127.0.0.1:8848
       config:
         enabled: false
