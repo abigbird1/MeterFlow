@@ -49,7 +49,7 @@ onMounted(load)
 
 <style scoped>
 @import './page.css';
-.item { display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
+.item { display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid var(--mf-line); align-items: flex-start; }
 .item:last-child { border-bottom: none; }
 .item.unread { background: #f0fdfa; }
 .b { font-size: 13px; font-weight: 600; }

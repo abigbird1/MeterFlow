@@ -63,5 +63,5 @@ onMounted(load)
 
 <style scoped>
 .muted { color: #94a3b8; font-size: 12px; }
-.reply { padding: 6px 0; border-bottom: 1px dashed #f1f5f9; font-size: 13px; }
+.reply { padding: 6px 0; border-bottom: 1px dashed var(--mf-line); font-size: 13px; }
 </style>

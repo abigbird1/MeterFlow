@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 import { fmtCents } from '@/utils/format'
+import { chartPalette, currentTheme } from '@/utils/theme'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -14,6 +15,7 @@ const trendEl = ref<HTMLElement>()
 const distEl = ref<HTMLElement>()
 let trendChart: echarts.ECharts | null = null
 let distChart: echarts.ECharts | null = null
+let distEvents: any[] = []
 
 const stageText: Record<string, string> = { normal: '正常', warning: '预警（停高消费产品）', suspended: '已停服' }
 
@@ -28,24 +30,28 @@ const growthColor = computed(() => {
 })
 
 function renderTrend(byDay: Record<string, string>) {
+  const pal = chartPalette()
   const days = Object.keys(byDay).sort()
   trendChart?.setOption({
     grid: { left: 48, right: 16, top: 24, bottom: 28 },
-    tooltip: { trigger: 'axis', valueFormatter: (v: any) => '¥' + Number(v).toFixed(2) },
-    xAxis: { type: 'category', data: days.map(d => d.slice(5)) },
-    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+    tooltip: { trigger: 'axis', valueFormatter: (v: any) => '¥' + Number(v).toFixed(2),
+      backgroundColor: pal.tooltipBg, borderColor: pal.tooltipBorder, textStyle: { color: pal.tooltipText } },
+    xAxis: { type: 'category', data: days.map(d => d.slice(5)), axisLabel: { color: pal.axisLabel } },
+    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}', color: pal.axisLabel }, splitLine: { lineStyle: { color: pal.splitLine } } },
     series: [{ type: 'line', smooth: true, areaStyle: { opacity: 0.12 }, lineStyle: { color: '#0d9488' }, itemStyle: { color: '#0d9488' }, data: days.map(d => Number(byDay[d])) }],
   })
 }
 
 function renderDist(events: any[]) {
+  const pal = chartPalette()
   // 产品消费分布：事件级数据前端聚合（真实明细，无独立聚合接口）
   const byProduct = new Map<number, number>()
   for (const e of events) byProduct.set(e.productId, (byProduct.get(e.productId) ?? 0) + Number(e.costAmount ?? 0))
   const rows = [...byProduct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
   distChart?.setOption({
-    tooltip: { trigger: 'item', valueFormatter: (v: any) => '¥' + Number(v).toFixed(2) },
-    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11 } },
+    tooltip: { trigger: 'item', valueFormatter: (v: any) => '¥' + Number(v).toFixed(2),
+      backgroundColor: pal.tooltipBg, borderColor: pal.tooltipBorder, textStyle: { color: pal.tooltipText } },
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: pal.axisLabel } },
     series: [{
       type: 'pie', radius: ['42%', '68%'], center: ['50%', '44%'],
       label: { show: false },
@@ -85,7 +91,8 @@ async function load() {
   if (distEl.value && !distChart) distChart = echarts.init(distEl.value)
   renderTrend(data.value?.dailyTrend ?? {})
   const d: any = await request.get('/t/usage-events', { params: { pageNum: 1, pageSize: 100 } })
-  renderDist((d.list ?? []) as any[])
+  distEvents = (d.list ?? []) as any[]
+  renderDist(distEvents)
 }
 
 function onResize() { trendChart?.resize(); distChart?.resize() }
@@ -93,6 +100,7 @@ function onResize() { trendChart?.resize(); distChart?.resize() }
 onMounted(async () => {
   await load()
   window.addEventListener('resize', onResize)
+  window.addEventListener('mf-theme-change', () => { renderTrend(data.value?.dailyTrend ?? {}); renderDist(distEvents) })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
@@ -232,7 +240,7 @@ onBeforeUnmount(() => {
 .charts { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
 .quota { display: flex; align-items: center; gap: 12px; margin: 8px 0; font-size: 13px; }
 .tag-icon { min-width: 150px; }
-.budget-card .flex b { color: #0f172a; }
+.budget-card .flex b { color: var(--mf-text); }
 .gift { color: #7c3aed; }
 @media (max-width: 1100px) { .cards { grid-template-columns: 1fr 1fr; } .charts { grid-template-columns: 1fr; } }
 </style>

@@ -1,2 +1,22 @@
+
 html, body, #app { height: 100%; margin: 0; }
-body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; color: #0f172a; }
+/* 自定义颜色变量层（Element dark css-vars 之外的补充，供自定义样式引用） */
+:root {
+  --mf-bg: #eef2f7;          /* 页面主背景 */
+  --mf-card: #ffffff;        /* 卡片背景 */
+  --mf-text: #0f172a;        /* 主文本 */
+  --mf-text2: #64748b;       /* 次文本 */
+  --mf-text3: #94a3b8;       /* 弱文本 */
+  --mf-line: #f1f5f9;        /* 分隔线 */
+  --mf-hover: #f8fafc;       /* 悬浮/浅底 */
+}
+html.dark {
+  --mf-bg: #0b1220;
+  --mf-card: #10192e;
+  --mf-text: #e2e8f0;
+  --mf-text2: #94a3b8;
+  --mf-text3: #7c8db0;
+  --mf-line: #1c2942;
+  --mf-hover: #16223c;
+}
+body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; color: var(--mf-text); background: var(--mf-bg); transition: background .2s; }

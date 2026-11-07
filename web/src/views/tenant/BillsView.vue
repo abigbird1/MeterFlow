@@ -223,7 +223,7 @@ onMounted(load)
 
 <style scoped>
 @import './page.css';
-.calc { display: flex; align-items: center; gap: 12px; background: #f8fafc; border-radius: 8px; padding: 12px 16px; }
+.calc { display: flex; align-items: center; gap: 12px; background: var(--mf-hover); border-radius: 8px; padding: 12px 16px; }
 .calc-item { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
 .calc-item span { color: #64748b; font-size: 12px; }
 .calc-item.total b { color: #0d9488; font-size: 18px; }

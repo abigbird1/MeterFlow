@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/api/request'
+import { toggleTheme } from '@/utils/theme'
 
 const router = useRouter()
 const route = useRoute()
@@ -55,9 +56,10 @@ function logout() {
 <template>
   <div style="display: flex; min-height: 100vh">
     <aside :style="{ width: collapsed ? '60px' : '220px', background: '#0b1220', color: '#94a3b8', padding: '16px 12px', transition: 'width .2s', flexShrink: 0, display: 'flex', flexDirection: 'column' }">
-      <div style="color: #fff; font-weight: 700; padding: 8px; white-space: nowrap; overflow: hidden">
-        <template v-if="!collapsed">⚡ MeterFlow <el-tag size="small" type="success">租户端</el-tag></template>
-        <template v-else>⚡</template>
+      <div style="color: #fff; font-weight: 700; padding: 8px 4px; white-space: nowrap; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 4px">
+        <span v-if="!collapsed">⚡ MeterFlow <el-tag size="small" type="success">租户端</el-tag></span>
+        <span v-else>⚡</span>
+        <el-button size="small" text style="color: #94a3b8; padding: 0 2px" title="切换主题" @click="toggleTheme()">🌓</el-button>
       </div>
       <div v-for="m in menus" :key="m.path">
         <div
@@ -80,7 +82,7 @@ function logout() {
         <el-button size="small" link style="color: #94a3b8" @click="logout">{{ collapsed ? '⏻' : '退出登录' }}</el-button>
       </div>
     </aside>
-    <main style="flex: 1; background: #eef2f7; min-width: 0">
+    <main style="flex: 1; background: var(--mf-bg); min-width: 0">
       <router-view />
     </main>
   </div>

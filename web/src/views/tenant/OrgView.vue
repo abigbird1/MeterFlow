@@ -294,6 +294,6 @@ onMounted(load)
 @import './page.css';
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .tree-node { display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 8px; font-size: 13px; }
-.role-row { display: flex; justify-content: space-between; padding: 8px 4px; font-size: 13px; border-bottom: 1px dashed #f1f5f9; cursor: pointer; }
-.role-row:hover { background: #f8fafc; }
+.role-row { display: flex; justify-content: space-between; padding: 8px 4px; font-size: 13px; border-bottom: 1px dashed var(--mf-line); cursor: pointer; }
+.role-row:hover { background: var(--mf-hover); }
 </style>

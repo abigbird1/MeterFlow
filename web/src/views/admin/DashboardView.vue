@@ -3,6 +3,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 import { fmtCents } from '@/utils/format'
+import { chartPalette } from '@/utils/theme'
 
 /** 数据看板（05 §6.1）：平台统计卡 + 近 7 日消费趋势（billing 聚合）+ 租户余额水位 */
 const stats = ref<any>(null)
@@ -19,15 +20,17 @@ async function load() {
   if (trendEl.value && !trendChart) trendChart = echarts.init(trendEl.value)
   if (balanceEl.value && !balanceChart) balanceChart = echarts.init(balanceEl.value)
 
+  const pal = chartPalette()
   const trend = (stats.value?.trend ?? []) as any[]
   trendChart?.setOption({
     grid: { left: 60, right: 20, top: 30, bottom: 28 },
     tooltip: {
       trigger: 'axis',
       valueFormatter: (v: any) => '¥' + Number(v).toFixed(2),
+      backgroundColor: pal.tooltipBg, borderColor: pal.tooltipBorder, textStyle: { color: pal.tooltipText },
     },
-    xAxis: { type: 'category', data: trend.map(t => String(t.date).slice(5)) },
-    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+    xAxis: { type: 'category', data: trend.map(t => String(t.date).slice(5)), axisLabel: { color: pal.axisLabel } },
+    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}', color: pal.axisLabel }, splitLine: { lineStyle: { color: pal.splitLine } } },
     series: [
       {
         name: '消费金额', type: 'line', smooth: true,
@@ -43,9 +46,10 @@ async function load() {
 
   balanceChart?.setOption({
     grid: { left: 70, right: 20, top: 30, bottom: 28 },
-    tooltip: { valueFormatter: (v: any) => '¥' + Number(v).toFixed(2) },
-    xAxis: { type: 'category', data: tenants.value.map(t => t.name), axisLabel: { interval: 0 } },
-    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+    tooltip: { valueFormatter: (v: any) => '¥' + Number(v).toFixed(2),
+      backgroundColor: pal.tooltipBg, borderColor: pal.tooltipBorder, textStyle: { color: pal.tooltipText } },
+    xAxis: { type: 'category', data: tenants.value.map(t => t.name), axisLabel: { interval: 0, color: pal.axisLabel } },
+    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}', color: pal.axisLabel }, splitLine: { lineStyle: { color: pal.splitLine } } },
     series: [{
       type: 'bar', barWidth: 44,
       data: tenants.value.map(t => ({
@@ -61,6 +65,7 @@ function onResize() { trendChart?.resize(); balanceChart?.resize() }
 onMounted(async () => {
   await load()
   window.addEventListener('resize', onResize)
+  window.addEventListener('mf-theme-change', () => { if (stats.value) load() })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
