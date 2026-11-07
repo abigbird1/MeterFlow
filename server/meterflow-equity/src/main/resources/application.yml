@@ -43,3 +43,7 @@ management:
     web:
       exposure:
         include: health,info
+
+# RocketMQ（S4 实例发放事件通道；compose standalone，namesrv 容器内 9876）
+rocketmq:
+  name-server: 127.0.0.1:9876

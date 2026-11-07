@@ -40,7 +40,8 @@ services:
   rocketmq-broker:
     image: apache/rocketmq:5.1.4
     container_name: meterflow-broker
-    command: ./mqbroker -n meterflow-namesrv:9876
+    # brokerIP1 强制注册宿主可达地址（容器内网 IP 宿主机客户端不可达）
+    command: sh -c "printf 'brokerIP1=127.0.0.1\nnamesrvAddr=meterflow-namesrv:9876\n' > /tmp/rmqsrv.conf && ./mqbroker -c /tmp/rmqsrv.conf"
     depends_on: [rocketmq-namesrv]
     ports: ["10911:10911", "10909:10909"]
 

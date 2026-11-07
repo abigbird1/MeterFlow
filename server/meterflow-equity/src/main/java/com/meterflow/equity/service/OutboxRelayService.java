@@ -24,7 +24,8 @@ import java.util.Map;
 public class OutboxRelayService {
 
     private final OutboxMessageMapper outboxMapper;
-    private final BillingCallbackClient billingCallbackClient;
+    private final BillingCallbackClient billingCallbackClient;   // 回补/人工处置通道保留
+    private final com.meterflow.equity.mq.OutboxProducer outboxProducer;
 
     /** 重试上限：超过后转入 failed 终态（毒消息隔离，保留留痕供人工处置；MQ 阶段对应死信） */
     private static final int MAX_RETRY = 50;
@@ -38,10 +39,8 @@ public class OutboxRelayService {
                 .last("limit 20"));
         for (OutboxMessage msg : pending) {
             try {
-                Map<String, Object> resp = billingCallbackClient.grantInstance(
-                        Map.of("payload", msg.getPayload()));
-                log.info("[OUTBOX] {} {} → {}", msg.getTopic(), msg.getBizKey(),
-                        String.valueOf(resp.get("data")));
+                // 投递通道：RocketMQ（03 设计基线）；发送失败走下方重试/终态机制
+                outboxProducer.send(msg.getTopic(), msg.getBizKey(), msg.getPayload());
                 msg.setStatus("confirmed");
                 msg.setUpdatedAt(LocalDateTime.now());
                 outboxMapper.updateById(msg);

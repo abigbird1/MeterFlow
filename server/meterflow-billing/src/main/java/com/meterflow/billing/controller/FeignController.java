@@ -42,6 +42,7 @@ public class FeignController {
     private final com.meterflow.billing.mapper.AccountTransactionMapper transactionMapper;
     private final EquityClient equityClient;
     private final com.meterflow.billing.service.BudgetService budgetService;
+    private final com.meterflow.billing.service.GrantService grantService;
     private final com.meterflow.billing.service.AnomalyService anomalyService;
     private final com.meterflow.billing.service.PackageExpireService packageExpireService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -54,23 +55,7 @@ public class FeignController {
     public Result<Map<String, Object>> grant(@RequestBody Map<String, String> body) throws Exception {
         Map<String, Object> req = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readValue(body.get("payload"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-        String orderNo = String.valueOf(req.get("orderNo"));
-        Long exists = packageMapper.selectCount(new LambdaQueryWrapper<PackageInstance>()
-                .eq(PackageInstance::getSourceOrderNo, orderNo));
-        if (exists > 0) return Results.ok(Map.of("granted", false, "reason", "已发放（幂等跳过）"));
-        Long goodsId = Long.valueOf(String.valueOf(req.get("goodsId")));
-        @SuppressWarnings("unchecked") Map<String, Object> goods = (Map<String, Object>) equityClient.goods(goodsId).get("data");
-        PackageInstance p = new PackageInstance();
-        p.setTenantId(Long.valueOf(String.valueOf(req.get("tenantId")))); p.setPkgType("spec");
-        p.setTitle(goods == null ? "资源包" : String.valueOf(goods.get("name")));
-        p.setProductId(Long.valueOf(String.valueOf(goods == null ? req.get("productId") : goods.get("productId"))));
-        p.setMetricKey(String.valueOf(goods.get("metricKey")));
-        p.setTotal(new BigDecimal(String.valueOf(goods.get("quantity"))));
-        p.setRemaining(p.getTotal()); p.setUnit(String.valueOf(goods.get("unit")));
-        p.setExpireDate(LocalDate.now().plusDays(Long.parseLong(String.valueOf(goods.get("validDays")))));
-        p.setStatus("active"); p.setSourceOrderNo(orderNo);
-        packageMapper.insert(p);
-        return Results.ok(Map.of("granted", true, "instanceId", p.getId()));
+        return Results.ok(grantService.grant(req));
     }
 
     /** goods 只读详情（billing 回查，方案 B） */

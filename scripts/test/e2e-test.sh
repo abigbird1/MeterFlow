@@ -61,9 +61,9 @@ ORD=$(curl -s -X POST http://localhost:8080/t/orders -H "Authorization: Bearer $
 [ -n "$ORD" ] && ok "T13 下单锁库存" || bad "T13 下单" "$ORD"
 PAY=$(curl -s -X POST http://localhost:8080/t/orders/$ORD/pay -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"method":"alipay-demo"}')
 echo "$PAY" | grep -q '"status":"paid"' && ok "T14 模拟支付" || bad "T14 支付" "$PAY"
-sleep 5
+sleep 12   # MQ 通道：冷连接/重消费可能延迟发放
 INST=$(curl -s http://localhost:8080/t/packages/mine -H "Authorization: Bearer $TOKEN")
-echo "$INST" | grep -q "$ORD" && ok "T15 S4 实例发放(outbox relay)" || bad "T15 S4 实例发放" "未见 $ORD"
+echo "$INST" | grep -q "$ORD" && ok "T15 S4 实例发放(RocketMQ)" || bad "T15 S4 实例发放" "未见 $ORD"
 ORD2=$(curl -s -X POST http://localhost:8080/t/orders -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "{\"goodsId\":$GID,\"qty\":1}" | jget "['data']['orderNo']")
 curl -s -X POST http://localhost:8080/t/orders/$ORD2/cancel -H "Authorization: Bearer $TOKEN" >/dev/null
 ST=$(mysql -uroot -p123456 -N -e "SELECT status FROM meterflow_equity.goods_order WHERE order_no='$ORD2'" 2>/dev/null)
@@ -175,6 +175,7 @@ O3=$(curl -s -X POST http://localhost:8080/t/orders -H "Authorization: Bearer $T
 echo "$O3" | grep -q "EQY-4002" && ok "T36 R31 每人限购(第3单被拒)" || bad "T36 R31 限购" "$O3"
 curl -s -X POST http://localhost:8080/t/orders/$O1/pay -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"method":"alipay-demo"}' >/dev/null
 curl -s -X POST http://localhost:8080/t/orders/$O2/pay -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"method":"alipay-demo"}' >/dev/null
+sleep 6   # 等 outbox→MQ→消费发放完成再清理（避免 MQ 毒消息）
 mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.package_instance WHERE source_order_no IN ('$O1','$O2'); DELETE FROM meterflow_equity.goods_order WHERE order_no IN ('$O1','$O2'); DELETE FROM meterflow_equity.goods WHERE id=$GID2;" 2>/dev/null
 
 echo "=== 月度预算告警（新功能） ==="
@@ -199,14 +200,14 @@ D1=$(date -d "1 day ago" +%F 2>/dev/null || date -v-1d +%F)
 D2=$(date -d "2 days ago" +%F 2>/dev/null || date -v-2d +%F)
 mysql -uroot -p123456 -e "INSERT INTO meterflow_billing.usage_event (id, ingest_system, event_id, tenant_id, dept_id, dept_name, product_id, key_id, metrics, arrive_time, price_version, cost_amount, status)
 VALUES ($(date +%s)91, 'anom-e2e', 'anom-b-$RUN', 1001, 1001, '研发部', 1002, NULL, '{}', '$D2 10:00:00', 'v2', 1.0000, 'normal'),
-       ($(date +%s)92, 'anom-e2e', 'anom-s-$RUN', 1001, 1001, '研发部', 1002, NULL, '{}', '$D1 10:00:00', 'v2', 1000.0000, 'normal');" 2>/dev/null
+       ($(date +%s)92, 'anom-e2e', 'anom-s-$RUN', 1001, 1001, '研发部', 1002, NULL, '{}', '$D1 10:00:00', 'v2', 5000.0000, 'normal');" 2>/dev/null
 AC=$(curl -s -X POST "http://localhost:8082/feign/billing/anomaly-check?date=$D1" | jget "['data']")
 [ -n "$AC" ] && [ "$AC" -ge 1 ] 2>/dev/null && ok "T39 消费异常检测(突增告警)" || bad "T39 异常检测" "$AC"
 ANOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null)
 [ "$ANOTIF" -ge 1 ] 2>/dev/null && ok "T40a 异常提醒通知落库" || bad "T40a 通知" "$ANOTIF"
 DSTATS=$(curl -s "http://localhost:8080/t/depts/stats" -H "Authorization: Bearer $TOKEN")
 echo "$DSTATS" | grep -q '"deptName"' && ok "T40b 部门消费统计聚合" || bad "T40b 部门统计" "$DSTATS"
-mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.usage_event WHERE ingest_system='anom-e2e'; DELETE FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null
+mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.usage_event WHERE ingest_system IN ('anom-e2e','anom'); DELETE FROM meterflow_platform.notification WHERE title='消费异常提醒';" 2>/dev/null
 
 echo "=== 环比与自定义阈值（新功能） ==="
 OV=$(curl -s http://localhost:8080/t/overview -H "Authorization: Bearer $TOKEN")
