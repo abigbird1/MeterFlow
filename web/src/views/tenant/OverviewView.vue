@@ -13,8 +13,10 @@ const data = ref<any>(null)
 const budget = ref<any>(null)
 const trendEl = ref<HTMLElement>()
 const distEl = ref<HTMLElement>()
+const monthEl = ref<HTMLElement>()
 let trendChart: echarts.ECharts | null = null
 let distChart: echarts.ECharts | null = null
+let monthChart: echarts.ECharts | null = null
 let distEvents: any[] = []
 
 const stageText: Record<string, string> = { normal: '正常', warning: '预警（停高消费产品）', suspended: '已停服' }
@@ -39,6 +41,20 @@ function renderTrend(byDay: Record<string, string>) {
     xAxis: { type: 'category', data: days.map(d => d.slice(5)), axisLabel: { color: pal.axisLabel } },
     yAxis: { type: 'value', axisLabel: { formatter: '¥{value}', color: pal.axisLabel }, splitLine: { lineStyle: { color: pal.splitLine } } },
     series: [{ type: 'line', smooth: true, areaStyle: { opacity: 0.12 }, lineStyle: { color: '#0d9488' }, itemStyle: { color: '#0d9488' }, data: days.map(d => Number(byDay[d])) }],
+  })
+}
+
+function renderMonthly(byMonth: Record<string, string>) {
+  const pal = chartPalette()
+  const months = Object.keys(byMonth).sort()
+  monthChart?.setOption({
+    grid: { left: 48, right: 16, top: 24, bottom: 28 },
+    tooltip: { trigger: 'axis', valueFormatter: (v: any) => '¥' + Number(v).toFixed(2),
+      backgroundColor: pal.tooltipBg, borderColor: pal.tooltipBorder, textStyle: { color: pal.tooltipText } },
+    xAxis: { type: 'category', data: months, axisLabel: { color: pal.axisLabel } },
+    yAxis: { type: 'value', axisLabel: { formatter: '¥{value}', color: pal.axisLabel }, splitLine: { lineStyle: { color: pal.splitLine } } },
+    series: [{ type: 'bar', barWidth: 26, itemStyle: { color: '#6366f1', borderRadius: [4, 4, 0, 0] },
+      data: months.map(m => Number(byMonth[m])) }],
   })
 }
 
@@ -90,21 +106,23 @@ async function load() {
   if (trendEl.value && !trendChart) trendChart = echarts.init(trendEl.value)
   if (distEl.value && !distChart) distChart = echarts.init(distEl.value)
   renderTrend(data.value?.dailyTrend ?? {})
+  if (monthEl.value && !monthChart) monthChart = echarts.init(monthEl.value)
+  renderMonthly(data.value?.monthlyTrend ?? {})
   const d: any = await request.get('/t/usage-events', { params: { pageNum: 1, pageSize: 100 } })
   distEvents = (d.list ?? []) as any[]
   renderDist(distEvents)
 }
 
-function onResize() { trendChart?.resize(); distChart?.resize() }
+function onResize() { trendChart?.resize(); distChart?.resize(); monthChart?.resize() }
 
 onMounted(async () => {
   await load()
   window.addEventListener('resize', onResize)
-  window.addEventListener('mf-theme-change', () => { renderTrend(data.value?.dailyTrend ?? {}); renderDist(distEvents) })
+  window.addEventListener('mf-theme-change', () => { renderTrend(data.value?.dailyTrend ?? {}); renderDist(distEvents); renderMonthly(data.value?.monthlyTrend ?? {}) })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
-  trendChart?.dispose(); distChart?.dispose()
+  trendChart?.dispose(); distChart?.dispose(); monthChart?.dispose()
 })
 </script>
 
@@ -186,6 +204,11 @@ onBeforeUnmount(() => {
           <div ref="distEl" style="height: 260px" />
         </el-card>
       </div>
+
+      <el-card class="block">
+        <template #header><b>近 6 个月消费</b>（含本月，实时累计）</template>
+        <div ref="monthEl" style="height: 240px" />
+      </el-card>
 
       <el-card class="block">
         <template #header><b>免费额度 / 赠送额度 / 生效资源包</b></template>

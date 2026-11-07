@@ -10,6 +10,7 @@ import com.meterflow.finance.mapper.BillSectionMapper;
 import com.meterflow.finance.mapper.TaskInstanceMapper;
 import com.meterflow.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import java.util.UUID;
 /** 账单域（M6）：出账（R17/R42 幂等）→ 确认 → 结清；数据经 Feign billing 月度汇总 */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BillService {
 
     private final BillMapper billMapper;
@@ -31,6 +33,7 @@ public class BillService {
     private final TaskInstanceMapper taskMapper;
     private final BillingClient billingClient;
     private final ReconService reconService;
+    private final com.meterflow.finance.feign.NotifyClient notifyClient;
 
     public List<Bill> list() {
         return billMapper.selectList(new LambdaQueryWrapper<Bill>().orderByDesc(Bill::getId));
@@ -152,6 +155,19 @@ public class BillService {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             return billMapper.selectOne(new LambdaQueryWrapper<Bill>()
                     .eq(Bill::getTenantId, tenantId).eq(Bill::getPeriod, period).last("limit 1"));
+        }
+        // 出账自动通知租户（A3/D6：站内触达，账单生命周期感知）；冷连接失败重试一次
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                notifyClient.notify(Map.of("tenantId", tenantId, "type", "info",
+                        "title", "账单已出",
+                        "content", String.format("%s 账单 %s 已出账，应付 %s 元，请及时确认与支付（R17）",
+                                period, b.getBillNo(), b.getPayableCents().divide(java.math.BigDecimal.valueOf(100)).toPlainString())));
+                break;
+            } catch (Exception e) {
+                if (attempt == 1) log.warn("[BILL] 出账通知触达失败 billNo={}：{}", b.getBillNo(), e.getMessage());
+                else try { Thread.sleep(300); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+            }
         }
         // 部门小计需在 insert 后补写（雪花 ID 由 insert 时分配，bill_dept_sub 外键依赖）
         ensureDeptSub(b);

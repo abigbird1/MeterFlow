@@ -75,8 +75,11 @@ MB1=$(curl -s -X POST http://localhost:8080/a/tasks/monthly-bill -H "Authorizati
 MB2=$(curl -s -X POST http://localhost:8080/a/tasks/monthly-bill -H "Authorization: Bearer $FT" -H "Content-Type: application/json" -d '{"tenantId":1001,"period":"2026-12"}')
 echo "$MB2" | grep -q "\"billNo\"" && ok "T17 出账幂等(返回已存在,R42)" || bad "T17 出账幂等" "$MB2"
 BILLNO=$(echo "$MB1" | jget "['data']['billNo']")
-ST=$(curl -s http://localhost:8080/a/bills -H "Authorization: Bearer $FT" | jget "['data'][0]['status']")
-[ "$ST" = "settled" ] && ok "T18 状态流转(settled 终态)" || bad "T18 状态流转" "$ST"
+# 状态机自驱验证：确认 → 结清 → 断言本账单 settled（不依赖数据顺序）
+curl -s -X POST http://localhost:8080/a/bills/$BILLNO/confirm -H "Authorization: Bearer $FT" >/dev/null
+curl -s -X POST http://localhost:8080/a/bills/$BILLNO/settle -H "Authorization: Bearer $FT" >/dev/null
+ST=$(curl -s "http://localhost:8080/t/bills/$BILLNO" -H "Authorization: Bearer $(curl -s -X POST http://localhost:8080/auth/login -H 'Content-Type: application/json' -d '{"email":"zhangwei@xinglan.com","password":"demo","portal":"t"}' | jget "['data']['token']")" | jget "['data']['status']")
+[ "$ST" = "settled" ] && ok "T18 状态流转(确认→结清 settled 终态)" || bad "T18 状态流转" "$BILLNO=$ST"
 
 echo "=== 对账与冲正（两级审批 I6） ==="
 mysql -uroot -p123456 -e "UPDATE meterflow_finance.recon_error SET status='todo' WHERE err_no='REC-20261102-07'" 2>/dev/null
@@ -225,6 +228,20 @@ ENOTIF=$(mysql -uroot -p123456 -N -e "SELECT COUNT(*) FROM meterflow_platform.no
 EXC2=$(curl -s -X POST http://localhost:8082/feign/billing/package-expire-check | jget "['data']")
 [ "$EXC2" = "0" ] 2>/dev/null && ok "T43c 提醒幂等(标记位防重发)" || bad "T43c 幂等" "$EXC2"
 mysql -uroot -p123456 -e "DELETE FROM meterflow_billing.package_instance WHERE title='E2E到期包'; DELETE FROM meterflow_platform.notification WHERE title LIKE '%资源包%';" 2>/dev/null
+
+echo "=== 长周期视图与出账通知（新功能） ==="
+OV2=$(curl -s http://localhost:8080/t/overview -H "Authorization: Bearer $TOKEN")
+echo "$OV2" | grep -q "monthlyTrend" && ok "T44 近6月消费聚合(monthlyTrend)" || bad "T44 月度趋势" "$OV2"
+AT2=$(curl -s -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"wucai@meterflow.cn","password":"demo","portal":"a"}' | jget "['data']['token']")
+NP=$(curl -s -X POST http://localhost:8080/a/tasks/monthly-bill -H "Authorization: Bearer $AT2" -H "Content-Type: application/json" -d '{"tenantId":1001,"period":"2027-02"}')
+BNOTIF=0
+for i in 1 2 3 4 5 6; do
+  BNOTIF=$(mysql -uroot -p123456 --default-character-set=utf8mb4 -N -e "SELECT COUNT(*) FROM meterflow_platform.notification WHERE title='账单已出' AND content LIKE '%2027-02%';" 2>/dev/null)
+  [ "$BNOTIF" -ge 1 ] 2>/dev/null && break
+  sleep 0.5
+done
+[ "$BNOTIF" -ge 1 ] 2>/dev/null && ok "T45 出账自动通知租户" || bad "T45 出账通知" "$NP|$BNOTIF"
+mysql -uroot -p123456 -e "DELETE FROM meterflow_finance.bill WHERE period='2027-02'; DELETE FROM meterflow_finance.bill_section WHERE bill_id NOT IN (SELECT id FROM meterflow_finance.bill); DELETE FROM meterflow_finance.bill_dept_sub WHERE bill_id NOT IN (SELECT id FROM meterflow_finance.bill); DELETE FROM meterflow_finance.task_instance WHERE biz_key LIKE '1001:2027-02'; DELETE FROM meterflow_platform.notification WHERE title='账单已出';" 2>/dev/null
 
 echo "========================"
 echo "RESULT: PASS=$PASS FAIL=$FAIL"

@@ -71,6 +71,24 @@ public class OverviewService {
         List<Map<String, Object>> lastRows = usageEventMapper.selectMaps(qwLast);
         BigDecimal lastSpend = new BigDecimal(String.valueOf(lastRows.isEmpty() ? BigDecimal.ZERO : lastRows.get(0).get("total")));
         out.put("lastMonthSpendAmount", lastSpend.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
+
+        // 近 6 个月月度消费（含当月，缺失月补零），供长周期柱状图
+        var qwM = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UsageEvent>()
+                .select("DATE_FORMAT(arrive_time,'%Y-%m') AS m", "IFNULL(SUM(cost_amount),0) AS c")
+                .eq("tenant_id", tenantId)
+                .ge("arrive_time", LocalDate.now().minusMonths(5).withDayOfMonth(1).atStartOfDay());
+        if (memberDeptId != null) qwM.eq("dept_id", memberDeptId);
+        qwM.groupBy("DATE_FORMAT(arrive_time,'%Y-%m')");
+        Map<String, BigDecimal> byMonth = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> r : usageEventMapper.selectMaps(qwM)) {
+            byMonth.put(String.valueOf(r.get("m")), new BigDecimal(String.valueOf(r.get("c"))));
+        }
+        Map<String, BigDecimal> monthlyTrend = new java.util.LinkedHashMap<>();
+        for (int i = 5; i >= 0; i--) {
+            String m = LocalDate.now().minusMonths(i).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
+            monthlyTrend.put(m, byMonth.getOrDefault(m, BigDecimal.ZERO));
+        }
+        out.put("monthlyTrend", monthlyTrend);
         out.put("monthGrowthPercent", lastSpend.signum() > 0
                 ? monthSpend.subtract(lastSpend).multiply(java.math.BigDecimal.valueOf(100)).divide(lastSpend, 0, java.math.RoundingMode.HALF_UP).intValue()
                 : null);
