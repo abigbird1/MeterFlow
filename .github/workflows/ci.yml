@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: 单元测试（四模块）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: mvn test
+        run: mvn -B test
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/**'
+          if-no-files-found: ignore
+
+  frontend:
+    name: 前端构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  e2e:
+    name: e2e 冒烟（全链路 58 用例）
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [unit, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 启动中间件（MySQL/Redis/Nacos/RocketMQ，CI 密码 override）
+        run: |
+          cd deploy
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml \
+            up -d mysql redis nacos rocketmq-namesrv rocketmq-broker
+
+      - name: 等待 MySQL 初始化（43 表+种子）与 Nacos 就绪
+        run: |
+          for i in $(seq 1 60); do
+            docker exec meterflow-mysql mysqladmin ping -uroot -p123456 --silent 2>/dev/null && break
+            sleep 5
+          done
+          # 首次 init 执行 schema+种子后仍有后台初始化，留缓冲
+          sleep 20
+          for i in $(seq 1 20); do
+            curl -sf -m 3 http://localhost:8848/nacos/v1/console/health/readiness | grep -q OK && break
+            sleep 5
+          done
+
+      - name: 安装 mysql 客户端（e2e 脚本依赖）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mysql-client
+          sudo ln -sf /usr/bin/python3 /usr/bin/python
+
+      - name: 打包五服务
+        run: mvn -B -DskipTests package
+
+      - name: 启动五服务（等待就绪）
+        run: |
+          cd server
+          for svc in platform billing equity finance gateway; do
+            nohup java -jar meterflow-$svc/target/meterflow-$svc-1.0.0-SNAPSHOT.jar \
+              --spring.datasource.password=123456 > /tmp/$svc.log 2>&1 &
+          done
+          for i in $(seq 1 40); do
+            ok=0
+            for p in 8081 8082 8083 8084 8080; do
+              curl -sf -m 3 http://localhost:$p/actuator/health >/dev/null 2>&1 && ok=$((ok+1))
+            done
+            [ $ok -eq 5 ] && { echo "五服务就绪"; exit 0; }
+            sleep 5
+          done
+          echo "五服务未就绪"; tail -30 /tmp/billing.log /tmp/gateway.log; exit 1
+
+      - name: e2e 全量（58 用例）
+        run: bash scripts/test/e2e-test.sh
+
+      - name: 失败时转储服务日志
+        if: failure()
+        run: |
+          for svc in platform billing equity finance gateway; do
+            echo "===== $svc ====="
+            tail -60 /tmp/$svc.log 2>/dev/null || true
+          done

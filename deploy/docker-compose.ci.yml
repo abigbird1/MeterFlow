@@ -1,0 +1,6 @@
+# CI 专用 compose override：MySQL 密码对齐应用/e2e 的 123456（本机原生 MySQL 口径）
+# 用法：docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d ...
+services:
+  mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456

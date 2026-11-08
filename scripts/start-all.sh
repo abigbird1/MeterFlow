@@ -20,6 +20,11 @@ for i in $(seq 1 12); do
 done
 echo "Nacos ready"
 
+echo "== 2.5) 端口冲突治理（zhitan-api restart=always 会抢 8080） =="
+docker update --restart=no zhitan-api 2>/dev/null || true
+docker stop zhitan-api 2>/dev/null || true
+sleep 2
+
 echo "== 3) 五服务（失败自动重试 3 次；依赖 Nacos 先行） =="
 cd "$ROOT/server"
 start_svc() {  # start_svc <name> <port>
@@ -39,6 +44,12 @@ start_svc billing  8082
 start_svc equity   8083
 start_svc finance  8084
 start_svc gateway  8080
+# 网关绑定验证：/auth/login 应 200（若 401=8080 被其它 Sa-Token 应用占用）
+for i in $(seq 1 6); do
+  code=$(curl -s -m 3 -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/auth/login     -H "Content-Type: application/json" -d '{"email":"x@x.cn","password":"x","portal":"t"}')
+  [ "$code" = "200" ] && break
+  echo "网关 login 返回 $code（可能 8080 被占），重试…"; sleep 3
+done
 
 echo "== 4) 就绪探测 =="
 for p in 8080 8081 8082 8083 8084; do
