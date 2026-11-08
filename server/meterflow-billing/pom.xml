@@ -58,6 +58,12 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-loadbalancer</artifactId>
     </dependency>
+    <!-- 单元测试（JUnit5 + Mockito；聚焦核心计算逻辑） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Nacos 配置中心（告警阈值等运营参数动态化，meterflow.md #7） -->
     <dependency>
       <groupId>com.alibaba.cloud</groupId>
