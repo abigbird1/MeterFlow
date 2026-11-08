@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import request from '@/api/request'
 import { chartPalette } from '@/utils/theme'
+import { ElMessage } from 'element-plus'
 import { fmtCents } from '@/utils/format'
 
 /** 消费报表中心（05 §5.2 扩展）：月度趋势 / 产品 / 部门 / Key 四维聚合，一页纵览 */
@@ -106,6 +107,35 @@ async function load() {
 }
 
 function onResize() { charts.forEach(c => c?.resize()) }
+/** 按所选月份导出消费明细 CSV（复用 /t/exports 异步任务 + 下载） */
+const exporting = ref(false)
+async function exportCsv() {
+  exporting.value = true
+  try {
+    const [y, m] = reportMonth.value.split('-').map(Number)
+    const startDate = reportMonth.value + '-01'
+    const endDate = new Date(y, m, 0).toISOString().slice(0, 10)
+    const t: any = await request.post('/t/exports', { taskType: 'events', startDate, endDate })
+    let task: any = t
+    for (let i = 0; i < 10 && task.status === 'processing'; i++) {
+      await new Promise(r => setTimeout(r, 800))
+      const list = (await request.get('/t/exports')) as any[]
+      task = (list ?? []).find((x: any) => String(x.id) === String(t.id)) ?? task
+    }
+    if (task.status !== 'done') { ElMessage.error('导出任务失败，请稍后重试'); return }
+    const blob = await request.get(`/t/exports/${task.id}/download`, { responseType: 'blob' })
+    const url = URL.createObjectURL(blob as unknown as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `消费报表-${reportMonth.value}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`已导出 ${reportMonth.value} 消费明细（${task.fileRows ?? 0} 行）`)
+  } finally {
+    exporting.value = false
+  }
+}
+
 async function onMonthChange() {
   loading.value = true
   try {
@@ -145,8 +175,11 @@ onBeforeUnmount(() => {
         <template #header>
           <div class="flex-between">
             <b>汇总</b>
-            <el-date-picker v-model="reportMonth" type="month" value-format="YYYY-MM" :clearable="false"
-              placeholder="选择报表月份" style="width: 140px" @change="onMonthChange" />
+            <div class="flex" style="gap: 8px">
+              <el-date-picker v-model="reportMonth" type="month" value-format="YYYY-MM" :clearable="false"
+                placeholder="选择报表月份" style="width: 140px" @change="onMonthChange" />
+              <el-button :loading="exporting" @click="exportCsv">导出本月 CSV</el-button>
+            </div>
           </div>
         </template>
         <div class="flex" style="gap: 40px; font-size: 13px">
