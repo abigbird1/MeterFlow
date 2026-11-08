@@ -33,6 +33,7 @@ const routes: RouteRecordRaw[] = [
       ['wallet', '余额与充值', 'tenant/WalletView'],
       ['packages', '资源包中心', 'tenant/PackagesView'],
       ['bills', '账单与明细', 'tenant/BillsView'],
+      ['reports', '消费报表中心', 'tenant/ReportsView'],
       ['api-keys', 'API Key', 'tenant/ApiKeysView'],
       ['disputes', '争议申诉', 'tenant/DisputesView'],
       ['org', '组织与角色', 'tenant/OrgView'],

@@ -20,7 +20,7 @@ spring:
       routes:
         # 事件上报 → billing（04 §1.2；限流口径 500 TPS）
         - id: ingest
-          uri: lb://meterflow-billing
+          uri: http://localhost:8082
           predicates: [ "Path=/ingest/**" ]
         # 认证 → platform
         - id: auth
@@ -28,35 +28,35 @@ spring:
           predicates: [ "Path=/auth/**" ]
         # 租户端：platform 承载（Key/组织/通知/个人）
         - id: t-platform
-          uri: lb://meterflow-platform
+          uri: http://localhost:8081
           predicates: [ "Path=/t/api-keys/**,/t/org/**,/t/notifications/**,/t/profile/**" ]
         # 租户端：billing 承载（总览/钱包/账单/明细/实例/导出）
         - id: t-billing
-          uri: lb://meterflow-billing
+          uri: http://localhost:8082
           predicates: [ "Path=/t/overview,/t/budget/**,/t/keys/**,/t/depts/**,/t/wallet/**,/t/usage-events/**,/t/package-instances/**,/t/exports/**" ]
         # 租户端：equity 承载（抢购/订单）
         - id: t-equity
-          uri: lb://meterflow-equity
+          uri: http://localhost:8083
           predicates: [ "Path=/t/packages/**,/t/orders/**" ]
         # 租户端：finance 承载（争议）
         - id: t-finance
-          uri: lb://meterflow-finance
+          uri: http://localhost:8084
           predicates: [ "Path=/t/disputes/**,/t/bills/**" ]
         # 管理端：platform 承载（看板/租户/账号/审计）
         - id: a-platform
-          uri: lb://meterflow-platform
+          uri: http://localhost:8081
           predicates: [ "Path=/a/dashboard,/a/tenants/**,/a/platform-users/**,/a/audit-logs/**" ]
         # 管理端：billing 承载（产品计价/赠送额度）
         - id: a-billing
-          uri: lb://meterflow-billing
+          uri: http://localhost:8082
           predicates: [ "Path=/a/products/**,/a/grants/**" ]
         # 管理端：equity 承载（商品/订单）
         - id: a-equity
-          uri: lb://meterflow-equity
+          uri: http://localhost:8083
           predicates: [ "Path=/a/goods/**,/a/orders/**" ]
         # 管理端：finance 承载（账单/任务/欠费/对账/调整单/争议）
         - id: a-finance
-          uri: lb://meterflow-finance
+          uri: http://localhost:8084
           predicates: [ "Path=/a/bills/**,/a/tasks/**,/a/debts/**,/a/recon/**,/a/adjustments/**,/a/disputes/**" ]
 
 management:

@@ -14,6 +14,7 @@ const menus = [
   { path: '/t/wallet', label: '余额与充值', icon: '💰' },
   { path: '/t/packages', label: '资源包中心', icon: '📦' },
   { path: '/t/bills', label: '账单与明细', icon: '🧾' },
+  { path: '/t/reports', label: '消费报表中心', icon: '📈' },
   { path: '/t/api-keys', label: 'API Key', icon: '🔑' },
   { path: '/t/disputes', label: '争议申诉', icon: '⚖️' },
   { path: '/t/org', label: '组织与角色', icon: '🏢' },
