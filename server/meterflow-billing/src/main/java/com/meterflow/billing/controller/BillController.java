@@ -129,15 +129,20 @@ public class BillController {
         return Results.ok(out);
     }
 
-    /** 部门消费统计（本月，按部门聚合；成员仅本部门——部门级数据隔离） */
+    /** 部门消费统计（按部门聚合；缺省本月，period=yyyy-MM 查历史月份；成员仅本部门——部门级数据隔离） */
     @GetMapping("/depts/stats")
-    public Result<List<Map<String, Object>>> deptStats(@RequestHeader(value = "Authorization", required = false) String authorization) {
+    public Result<List<Map<String, Object>>> deptStats(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                       @RequestParam(required = false) String period) {
         Me m = me(authorization);
+        LocalDate monthStart = period == null || period.isBlank()
+                ? LocalDate.now().withDayOfMonth(1)
+                : java.time.YearMonth.parse(period).atDay(1);
         var qw = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<UsageEvent>()
                 .select("dept_id", "IFNULL(MAX(dept_name),'未分配') AS dept_name", "COUNT(*) AS cnt", "IFNULL(SUM(cost_amount),0) AS cost")
                 .eq("tenant_id", m.tenantId())
                 .eq("status", "normal")
-                .ge("arrive_time", LocalDate.now().withDayOfMonth(1).atStartOfDay());
+                .ge("arrive_time", monthStart.atStartOfDay())
+                .lt("arrive_time", monthStart.plusMonths(1).atStartOfDay());
         if (m.memberDeptId() != null) qw.eq("dept_id", m.memberDeptId());   // 成员仅本部门
         qw.groupBy("dept_id");
         List<Map<String, Object>> out = new java.util.ArrayList<>();

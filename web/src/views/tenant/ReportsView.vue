@@ -17,6 +17,8 @@ const overview = ref<any>(null)
 const deptStats = ref<any[]>([])
 const keyStats = ref<any[]>([])
 const loading = ref(false)
+/** 报表月份（缺省本月；产品分布/部门/Key 三维随月份联动查询） */
+const reportMonth = ref<string>(new Date().toISOString().slice(0, 7))
 
 const prodRows = computed(() => {
   const m = new Map<number, { productId: number; events: number; cost: number }>()
@@ -90,8 +92,8 @@ async function load() {
   loading.value = true
   try {
     overview.value = await request.get('/t/overview')
-    deptStats.value = (await request.get('/t/depts/stats')) ?? []
-    keyStats.value = (await request.get('/t/keys/stats')) ?? []
+    deptStats.value = (await request.get('/t/depts/stats', { params: { period: reportMonth.value } })) ?? []
+    keyStats.value = (await request.get('/t/keys/stats', { params: { period: reportMonth.value } })) ?? []
     const d: any = await request.get('/t/usage-events', { params: { pageNum: 1, pageSize: 100 } })
     distEvents = (d.list ?? []) as any[]
     await nextTick()
@@ -104,6 +106,16 @@ async function load() {
 }
 
 function onResize() { charts.forEach(c => c?.resize()) }
+async function onMonthChange() {
+  loading.value = true
+  try {
+    deptStats.value = (await request.get('/t/depts/stats', { params: { period: reportMonth.value } })) ?? []
+    keyStats.value = (await request.get('/t/keys/stats', { params: { period: reportMonth.value } })) ?? []
+    renderAll()
+  } finally {
+    loading.value = false
+  }
+}
 const onThemeChange = () => { if (overview.value) renderAll() }
 window.addEventListener('mf-theme-change', onThemeChange)
 onMounted(async () => {
@@ -130,7 +142,13 @@ onBeforeUnmount(() => {
     <el-skeleton v-if="loading && !overview" :rows="5" animated />
     <template v-else>
       <el-card class="block">
-        <template #header><b>汇总</b></template>
+        <template #header>
+          <div class="flex-between">
+            <b>汇总</b>
+            <el-date-picker v-model="reportMonth" type="month" value-format="YYYY-MM" :clearable="false"
+              placeholder="选择报表月份" style="width: 140px" @change="onMonthChange" />
+          </div>
+        </template>
         <div class="flex" style="gap: 40px; font-size: 13px">
           <span>本月消费 <b style="font-size: 18px">{{ fmtCents(totalMonth * 100) }}</b></span>
           <span>本月事件 <b>{{ overview?.eventCount ?? 0 }}</b></span>
