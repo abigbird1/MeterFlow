@@ -87,6 +87,37 @@ public class BudgetService {
         return status(tenantId);
     }
 
+    /** 管理端告警清单（运营监控驾驶舱）：当期占比达预警阈值及以上的租户清单（含实时消费与级别） */
+    public List<Map<String, Object>> adminAlerts() {
+        String period = currentPeriod();
+        LocalDateTime start = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        List<Budget> budgets = budgetMapper.selectList(new LambdaQueryWrapper<Budget>()
+                .eq(Budget::getPeriod, period));
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Budget b : budgets) {
+            BigDecimal spent = usageEventMapper.selectList(new LambdaQueryWrapper<UsageEvent>()
+                            .eq(UsageEvent::getTenantId, b.getTenantId())
+                            .eq(UsageEvent::getStatus, "normal")
+                            .ge(UsageEvent::getArriveTime, start))
+                    .stream().map(UsageEvent::getCostAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long spentCents = com.meterflow.common.utils.Money.toCents(spent);
+            long budgetCents = b.getBudgetCents();
+            if (budgetCents <= 0) continue;
+            int percent = (int) Math.min(999, spentCents * 100 / budgetCents);
+            int warnRatio = b.getWarnRatio() == null ? 80 : b.getWarnRatio();
+            int critRatio = b.getCritRatio() == null ? 100 : b.getCritRatio();
+            if (percent < warnRatio) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("tenantId", b.getTenantId());
+            row.put("budgetCents", budgetCents);
+            row.put("spentCents", spentCents);
+            row.put("percent", percent);
+            row.put("level", percent >= critRatio ? "用尽" : "预警");
+            out.add(row);
+        }
+        return out;
+    }
+
     /**
      * 周期扫描：本期消费 ≥80% / ≥100% 预算时发送站内告警（标记位防重复）。
      * 由 @Scheduled 每小时驱动；feign 手动触发供运维/测试。

@@ -49,7 +49,7 @@ spring:
         # 管理端：billing 承载（产品计价/赠送额度）
         - id: a-billing
           uri: http://localhost:8082
-          predicates: [ "Path=/a/products/**,/a/grants/**" ]
+          predicates: [ "Path=/a/products/**,/a/grants/**,/a/budget-alerts/**" ]
         # 管理端：equity 承载（商品/订单）
         - id: a-equity
           uri: http://localhost:8083

@@ -4,6 +4,7 @@ import Placeholder from '@/views/Placeholder.vue'
 import TenantLayout from '@/views/tenant/TenantLayout.vue'
 import AdminLayout from '@/views/admin/AdminLayout.vue'
 import DashboardView from '@/views/admin/DashboardView.vue'
+import MonitorView from '@/views/admin/MonitorView.vue'
 import ProductsView from '@/views/admin/ProductsView.vue'
 import GoodsView from '@/views/admin/GoodsView.vue'
 import ReconView from '@/views/admin/ReconView.vue'
@@ -51,6 +52,7 @@ const routes: RouteRecordRaw[] = [
     redirect: '/a/dashboard',
     children: [
       { path: 'dashboard', component: DashboardView, meta: { title: '数据看板' } },
+      { path: 'monitor', component: MonitorView, meta: { title: '运营监控' } },
       { path: 'tenants', component: TenantsView, meta: { title: '租户管理' } },
       { path: 'products', component: ProductsView, meta: { title: '产品与计价' } },
       { path: 'goods', component: GoodsView, meta: { title: '资源包商品' } },

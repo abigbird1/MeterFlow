@@ -11,6 +11,7 @@ const auth = useAuthStore()
 
 const menus = [
   { path: '/a/dashboard', label: '数据看板', icon: '📊' },
+  { path: '/a/monitor', label: '运营监控', icon: '🚨', badgeKey: 'monitor' },
   { path: '/a/tenants', label: '租户管理', icon: '🏢' },
   { path: '/a/products', label: '产品与计价', icon: '🏷️' },
   { path: '/a/goods', label: '资源包商品', icon: '📦' },
@@ -44,6 +45,12 @@ async function loadBadges() {
     request.get('/a/disputes', { silent: true }).then((d: any) => {
       badges.value.disputes = ((d ?? []) as any[]).filter(x => x.status === 'pending').length
     }).catch(() => {}),
+    Promise.all([
+      request.get('/a/debts', { silent: true }).catch(() => []),
+      request.get('/a/budget-alerts', { silent: true }).catch(() => []),
+    ]).then(([db, ba]: any[]) => {
+      badges.value.monitor = ((db ?? []) as any[]).length + ((ba ?? []) as any[]).length
+    }),
   ]
   await Promise.allSettled(jobs)
 }
